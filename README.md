@@ -1,7 +1,5 @@
 # Sea-Fighters
-Interactive Graphics Project, Sapienza University.
-
-We have created an arcade videogame settled in the sea. For this task it has been used mainly the
+Sea Fighters is an arcade videogame settled in the sea. For this task it has been used mainly the
 three.js library. In the three.js library there is not a physical engine which allows us to manage
 the gravity and the various collisions, and thus, in order to achieve this target, we have used the
 Raycaster class available in the three.js library. For the environment we have imported some .obj
