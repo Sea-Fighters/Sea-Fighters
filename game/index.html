@@ -1,0 +1,2775 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <title>three.js webgl - shaders - ocean</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <link rel="stylesheet" type="text/css" href="loading-bar.css" />
+    <style>
+        {
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            color: #000;
+            font-family: Monospace;
+            font-size: 0px;
+            margin: 0px;
+            overflow: hidden;
+
+        }
+
+        .loader {
+            right: 47%;
+            top: 37%;
+            position: absolute;
+            border: 16px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 16px solid #ff0000;
+            width: 120px;
+            height: 120px;
+            -webkit-animation: spin 2s linear infinite;
+            /* Safari */
+            animation: spin 2s linear infinite;
+        }
+
+        /* Safari */
+
+        @-webkit-keyframes spin {
+            0% {
+                -webkit-transform: rotate(0deg);
+            }
+            100% {
+                -webkit-transform: rotate(360deg);
+            }
+        }
+
+        @keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        #lifeBar {
+            color: #000;
+            font-family: Monospace;
+            position: absolute;
+            top: 0px;
+            width: 100%;
+            text-align: center;
+            font-size: 15px;
+            padding: 0px;
+            overflow: hidden;
+
+        }
+
+        html,
+        body {
+            background: #333;
+            font-family: 'Oswald', sans-serif;
+            color: #CCC;
+            text-shadow: 1px 1px 5px black;
+
+        }
+
+        #center {
+            transform-style: preserve-3d;
+            position: absolute;
+            top: 10%;
+            left: 95.5%;
+            transform: translateY(-50%) translateX(-50%);
+        }
+
+        #score {
+            transform-style: preserve-3d;
+            font-size: 30px;
+            line-height: 30px;
+        }
+
+        #tag {
+            transform-style: preserve-3d;
+            display: none;
+            position: absolute;
+            top: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 20px;
+            line-height: 20px;
+        }
+
+        #title {
+            transform-style: preserve-3d;
+            position: absolute;
+            top: -45px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 30px;
+            line-height: 30px;
+        }
+
+
+        #game-over,
+        #game-over-overlay {
+            margin: auto;
+            width: 900px;
+            height: 600px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            z-index: 1;
+            display: none;
+            font-size: 40px;
+        }
+
+        #game-over-overlay {
+            background-color: black;
+            opacity: .7;
+            font-size: 40px;
+        }
+
+        #game-over {
+            height: 200px;
+            text-align: center;
+            color: white;
+            font-size: 20px;
+        }
+
+        #game-over h1 {
+            font-size: 3em;
+            font-family: sans-serif;
+            font-size: 40px;
+        }
+
+        #game-over button {
+            font-size: 1.5em;
+
+        }
+    </style>
+</head>
+
+<body>
+
+    </div>
+    <div id="container">
+        <div id="loadingBar" class="loader"></div>
+        
+        <div id="lifeBar" data-preset="bubble" class="ldBar label-center" data-value="100" data-pattern-size="80" style="opacity: 0.6"></div>
+
+        <div id="game-over-overlay"></div>
+
+        <div id="game-over">
+            <h1>GAME OVER</h1>
+            <button id="play-again">Play Again</button>
+        </div>
+
+        <div id="center">
+            <div id="title">
+                SCORE:
+            </div>
+            <div id="tag">
+                +100
+            </div>
+            <div id="score">
+                0
+            </div>
+        </div>
+
+    </div>
+
+    <script src="js/three.js"></script>
+    <script src="js/three.min.js"></script>
+
+    <script src="js/controls/OrbitControls.js"></script>
+    <script src="js/objects/Water.js"></script>
+    <script src="js/objects/Sky.js"></script>
+
+    <script src="js/Detector.js"></script>
+    <script src="js/libs/stats.min.js"></script>
+    <script src="js/libs/dat.gui.min.js"></script>
+
+    <script src="js/THREEx.KeyboardState.js"></script>
+    <script src="js/OBJLoader.js"></script>
+    <script src="js/DDSLoader.js"></script>
+    <script src="js/MTLLoader.js"></script>
+    <script src="js/ThreeCSG.js"></script>
+    <link rel="stylesheet" type="text/css" href="loading-bar.css" />
+    <script src="js/ParticleEngine.js"></script>
+
+    <!-- ShaderParticles -->
+    <script type="text/javascript" src="js/ShaderParticleEmitter.js"></script>
+    <script type="text/javascript" src="js/ShaderParticleGroup.js"></script>
+
+    <script type="text/javascript" src="js/loading-bar.js"></script>
+    <script type="text/javascript" src="js/loading-bar.min.js"></script>
+
+    <script src="js/jquery.min.js"></script>
+    <script type="text/javascript">
+        $('input').keypress(function(e) {
+            if (e.which == 13) {
+
+                $(this).next('input').focus();
+                e.preventDefault();
+            }
+        });
+    </script>
+
+    <script>
+        var loadingScreen = {
+            scene: new THREE.Scene(),
+            camera: new THREE.PerspectiveCamera(90, 1280 / 720, 0.1, 1000) //,
+        };
+
+        var loadingManager = null;
+        var RESOURCES_LOADED = false;
+
+        var score = 0;
+
+        function go(x) {
+            $({
+                score: 0
+            }).animate({
+                score: x
+            }, {
+                duration: 1000,
+                easing: "linear",
+                step: function(now, fx) {
+                    $("#score").html(score + Math.floor(now));
+                },
+                queue: false,
+                complete: function(now, fx) {
+                    score += x;
+                }
+            });
+            $("#tag").fadeIn({
+                duration: 700,
+                easing: "linear",
+                step: function(now, fx) {
+                    $(this).css("top", -55 * now + "px");
+                }
+            }).fadeOut({
+                duration: 300,
+                step: function(now, fx) {
+                    $(this).css("top", -55 * (2 - now) + "px");
+                }
+            });
+
+        }
+
+        if (!Detector.webgl) Detector.addGetWebGLMessage();
+
+        var container, stats;
+        var camera, scene, renderer, light;
+        var controls, water, sphere, cylinderSx4, cylinderSx3, cylinderSx2, cylinderSx1, hollowCylinder;
+
+        var angle = 0;
+        var speedY = 2 * (60 * 0.01);
+
+        var keyboard = new THREEx.KeyboardState();
+
+        var conta = 0;
+        var conta2 = 0;
+        var sign = 1;
+        var sign2 = 1;
+        var bbox;
+        var arrowList = [];
+        var directionList = [];
+        var originPoint2;
+        var obj;
+        var loader;
+        var manager;
+        var bbox2;
+        var bbox3;
+        var cube;
+        var posit;
+        var firstObject;
+        var secondObject;
+        var firstBB;
+        var secondBB;
+        var collision;
+        var bbox4;
+        var bbox5;
+        var collision2;
+        var posit1;
+        var countBullets = 0;
+        var targetDir;
+        var currentDir;
+        var amountToRotate;
+        var offset;
+        var raycaster;
+        var intersections;
+        var isEnemyLookingAtPlayer;
+        var pos;
+        var newDir;
+        var bulletNemiciT = [];
+        var bulletNemiciTurret = [];
+        var bulletNemici;
+        var bullet;
+        var bboxT;
+        var positBulletExplosion;
+        var MovingCubet;
+        var enemy;
+        var targetDir2;
+        var raycaster2;
+        var intersections2;
+        var collidableMeshList2 = []; //missili nemici generali
+        var collidableMeshListTorretta = []; //missili Torretta
+        var collisionWall0, collisionWall1, collisionWall2;
+        var secondBB2, secondBB3, secondBB4;
+        var bboxWall0, bboxWall1, bboxWall2;
+        var portal, portal1, portal2, portal3;
+        var collisionPortal, collisionPortal1, collisionPortal2, collisionPortal3;
+        var portalBox, portalCube, posit2, posit3;
+        var particleSystem;
+        var currentDir8, rayCaster5, wall2;
+        var collidableMeshList5 = [];
+        var collidableMeshList3 = []; //
+        var collidableMeshList0 = []; //boat
+        var collidableMeshList1 = []; // Missili Boat
+        var collidableMeshListTurret = []; //contro torrette
+        var collidableMeshListArm = [];
+        var newDir2, pos2, dista;
+        var MovingCubeBoat; //missili boat
+        var bboxIsola, bboxIsola2, bboxIsola3, bboxIsola4;
+        var object11;
+        var isolaBox, isolaBox2, isolaBox3, isolaBox4;
+        var secondBBIsola, secondBBIsola2, secondBBIsola3, secondBBIsola4;
+        var collisionWallIsola, collisionWallIsola2, collisionWallIsola3, collisionWallIsola4;
+        var box5, size;
+        var MovingCubeIsola, MovingCubeIsola2, MovingCubeIsola3, MovingCubeIsola4;
+        var MovingCubeB;
+        var cylinder;
+        var cylinderSx8;
+        var cylinderSx9;
+        var collisionResults1, faccia, collisionResults2;
+        var MissileboxAssociation = {};
+        var ray2, localVertex2, globalVertex2, directionVector2;
+        var group;
+        var emitter, particleGroup, listener2, audio, listener, sound2, audioLoader2;
+        var cylinder, cylinder2, cylinder3, cylinder4;
+        var MovingCubeArm;
+        var canShoot5 = 0;
+        // ALLOCATE THESE OUTSIDE OF THE RENDER LOOP - CHANGED
+        var matrix = new THREE.Matrix4();
+        var up = new THREE.Vector3(0, 0, 1);
+        var axis = new THREE.Vector3();
+        var pt, radians, axis, tangent;
+        var cubes = [],
+            plane, marker, spline;
+        // the getPoint starting variable - !important - You get me ;)
+        var t = 0;
+        var tempo = 4;
+
+        var movementSpeed = 80;
+        var totalObjects = 2000;
+        var totalObjects1 = 2000;
+        var objectSize = 1;
+        var sizeRandomness = 4000;
+        var colors = [0xFF0FFF, 0xFFFD00, 0xFF000F, 0xFEB90F, 0xFFFFFF, 0x00FC0F, 0x0002E0, 0x00CBFE];
+        //Magenta, Giallo tenue, rosso, marrone, bianco
+        /////////////////////////////////
+        var dirs = [];
+        var dirs1 = []; // enemy
+        var parts = [];
+        var parts1 = []; // enemy explo
+        var parts2 = []; // enemy explo
+        var parts3 = []; // enemy explo
+        var parts4 = []; // enemy explo
+        var parts5 = []; // enemy explo
+        var bar;
+        var valore = 100;
+        var clock = new THREE.Clock();
+        //Collisioni
+        var collidableMeshList = []; //wall
+
+        var arrowList = [];
+        var directionList = [];
+        var canShoot8 = 0;
+        //-----------------------------
+
+        var sign10 = 1;
+
+        var meshes = {};
+
+        var bullets = [];
+
+        var bullets2 = [];
+
+        var bullets3 = [];
+
+        var bullets4 = [];
+
+        var bullets5 = [];
+
+        var bullets8 = [];
+
+        var canShoot = 0;
+        var canShoot2 = 0;
+        var canShoot3 = 0;
+        var canShoot4 = 0;
+        this.colliders = [];
+
+        init();
+        animate();
+
+        function init() {
+
+            loadingManager = new THREE.LoadingManager();
+
+            loadingManager.onProgress = function(item, loaded, total) {
+                console.log(item, loaded, total);
+            };
+
+            loadingManager.onLoad = function() {
+                RESOURCES_LOADED = true;
+            };
+
+
+            document.getElementById('play-again').addEventListener('click', function() {
+                reset();
+            });
+
+            container = document.getElementById('container');
+
+            bar = new ldBar(".ldBar");
+
+            //
+
+            renderer = new THREE.WebGLRenderer();
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            container.appendChild(renderer.domElement);
+
+            //
+
+            scene = new THREE.Scene();
+
+            //
+
+            // CAMERA
+            var SCREEN_WIDTH = window.innerWidth,
+                SCREEN_HEIGHT = window.innerHeight;
+            var VIEW_ANGLE = 45,
+                ASPECT = SCREEN_WIDTH / SCREEN_HEIGHT,
+                NEAR = 0.1,
+                FAR = 20000;
+            camera = new THREE.PerspectiveCamera(VIEW_ANGLE, ASPECT, NEAR, FAR);
+            scene.add(camera);
+            camera.position.set(0, 30, -120);
+
+            camera.lookAt(scene.position);
+            var controls = new THREE.OrbitControls(camera);
+            controls.maxPolarAngle = (Math.PI / 2.09);
+            controls.minDistance = 80;
+            controls.maxDistance = 400;
+
+            //
+
+            light = new THREE.DirectionalLight(0xffffff, 0.8);
+            scene.add(light);
+
+            // Water
+
+            var waterGeometry = new THREE.PlaneBufferGeometry(20000, 20000);
+
+            water = new THREE.Water(
+                waterGeometry, {
+                    textureWidth: 512,
+                    textureHeight: 512,
+                    waterNormals: new THREE.TextureLoader(loadingManager).load('textures/waternormals.jpg', function(texture) {
+                        texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+                    }),
+                    alpha: 1.0,
+                    sunDirection: light.position.clone().normalize(),
+                    sunColor: 0xffffff,
+                    waterColor: 0x001e0f,
+                    distortionScale: 3.7,
+                    fog: scene.fog !== undefined
+                }
+            );
+
+            water.rotation.x = -Math.PI / 2;
+
+            scene.add(water);
+
+            water.rotation.x = -Math.PI / 2;
+
+            scene.add(water);
+
+            // Skybox
+
+            var sky = new THREE.Sky();
+            sky.scale.setScalar(20000);
+            scene.add(sky);
+
+            var uniforms = sky.material.uniforms;
+
+            uniforms.turbidity.value = 10;
+            uniforms.rayleigh.value = 2;
+            uniforms.luminance.value = 1;
+            uniforms.mieCoefficient.value = 0.005;
+            uniforms.mieDirectionalG.value = 0.8;
+
+            var parameters = {
+                distance: 400,
+                inclination: 0.49,
+                azimuth: 0.205
+            };
+
+            var cubeCamera = new THREE.CubeCamera(1, 20000, 256);
+            cubeCamera.renderTarget.texture.minFilter = THREE.LinearMipMapLinearFilter;
+
+            function updateSun() {
+
+
+                var theta = Math.PI * (parameters.inclination - 0.5);
+                var phi = 2 * Math.PI * (parameters.azimuth - 0.5);
+
+                light.position.x = parameters.distance * Math.cos(phi);
+                light.position.y = parameters.distance * Math.sin(phi) * Math.sin(theta);
+                light.position.z = parameters.distance * Math.sin(phi) * Math.cos(theta);
+
+                sky.material.uniforms.sunPosition.value = light.position.copy(light.position);
+                water.material.uniforms.sunDirection.value.copy(light.position).normalize();
+
+                cubeCamera.update(renderer, scene);
+
+            }
+
+            updateSun();
+
+            // STATS
+            stats = new Stats();
+            stats.domElement.style.position = 'absolute';
+            stats.domElement.style.bottom = '0px';
+            stats.domElement.style.cssText = 'position:absolute;bottom:0px;left:0px;';
+            stats.domElement.style.zIndex = 100;
+            container.appendChild(stats.domElement);
+
+            //Sfera---------------
+            var geometry = new THREE.IcosahedronBufferGeometry(10, 1);
+            var count = geometry.attributes.position.count;
+
+            var colors = [];
+            var color = new THREE.Color();
+
+            for (var i = 0; i < count; i += 3) {
+
+                color.setHex(Math.random() * 0xffffff);
+
+                colors.push(color.r, color.g, color.b);
+                colors.push(color.r, color.g, color.b);
+                colors.push(color.r, color.g, color.b);
+
+            }
+
+            geometry.addAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+
+            var material = new THREE.MeshStandardMaterial({
+                vertexColors: THREE.VertexColors,
+                roughness: 0.0,
+                flatShading: true,
+                envMap: cubeCamera.renderTarget.texture,
+                side: THREE.DoubleSide
+            });
+
+            sphere = new THREE.Mesh(geometry, material);
+            
+            function audio() {
+                // create an AudioListener and add it to the camera
+                listener = new THREE.AudioListener();
+                camera.add(listener);
+
+                // create a global audio source
+                var sound = new THREE.Audio(listener);
+
+                // load a sound and set it as the Audio object's buffer
+                var audioLoader = new THREE.AudioLoader(loadingManager);
+                audioLoader.load('sounds/pirati.mp3', function(buffer) {
+                    sound.setBuffer(buffer);
+                    sound.setLoop(true);
+                    sound.setVolume(0.04);
+                    sound.play();
+                });
+
+            }
+
+            audio();
+            Ogbject3D();
+            arm2();
+            arm();
+            BoxArm();
+            BoxArm2();
+            turret();
+            addModel();
+            WallBox();
+            MagicPort();
+            Enemy();
+
+            sound2 = new THREE.PositionalAudio(listener);
+            // load a sound and set it as the PositionalAudio object's buffer
+            audioLoader2 = new THREE.AudioLoader(loadingManager);
+            audioLoader2.load('sounds/bomb2.mp3', function(buffer) {
+                sound2.setBuffer(buffer);
+                sound2.setRefDistance(100);
+                sound2.setVolume(0.9);
+
+            });
+
+            function Path() {
+                for (var i = 0; i < 15; i++) {
+                    
+                }
+
+                var increment = (360 / cubes.length);
+                for (var i = 0; i < cubes.length; i++) {
+                    var angle = i * increment;
+                    var x = Math.cos(angle * (Math.PI / 180)) * 250;
+                    var y = Math.sin(angle * (Math.PI / 180)) * 250;
+                    cubes[i].position.x = x;
+                    cubes[i].position.z = y;
+
+                    scene.add(cubes[i]);
+                }
+
+                marker = Enemy();
+                scene.add(marker);
+
+                var Xmin = -3614;
+                var Xmax = -800; //Primo rettangolo di cordinate
+
+                var Zmin = -1051; //Primo rettangolo di cordinate
+                var Zmax = -3667;
+
+
+                var Xmin2 = -1930;
+                var Xmax2 = -3614; //secondo rettangolo di cordinate
+
+                var Zmin2 = -637; //secondo rettangolo di cordinate
+                var Zmax2 = 2551;
+
+
+                var Xmin3 = -2135;
+                var Xmax3 = 2863; //terzo rettangolo di cordinate
+
+                var Zmin3 = -194; //terzo rettangolo di cordinate
+                var Zmax3 = 2551;
+
+
+                var Xmin4 = 1129;
+                var Xmax4 = 3299; //quarto rettangolo di cordinate
+
+                var Zmin4 = -241; //quarto rettangolo di cordinate
+                var Zmax4 = -2716;
+
+
+                var Xmin5 = 1039;
+                var Xmax5 = -1765; //Rettangolo tra le isole 
+
+                var Zmin5 = -987; //Rettangolo tra le isole
+                var Zmax5 = -1851;
+
+
+                var Xmin6 = 130;
+                var Xmax6 = -220; //Rettangolo tra le isole 
+
+                var Zmin6 = 102; //Rettangolo tra le isole
+                var Zmax6 = -3000;
+
+                var valueX = Math.random() * (Xmax - Xmin) + Xmin;
+                var valueZ = Math.random() * (Zmax - Zmin) + Zmin;
+
+                var valueX2 = Math.random() * (Xmax2 - Xmin2) + Xmin2;
+                var valueZ2 = Math.random() * (Zmax2 - Zmin2) + Zmin2;
+
+                var valueX3 = Math.random() * (Xmax3 - Xmin3) + Xmin3;
+                var valueZ3 = Math.random() * (Zmax3 - Zmin3) + Zmin3;
+
+                var valueX4 = Math.random() * (Xmax4 - Xmin4) + Xmin4;
+                var valueZ4 = Math.random() * (Zmax4 - Zmin4) + Zmin4;
+
+                var valueX5 = Math.random() * (Xmax5 - Xmin5) + Xmin5;
+                var valueZ5 = Math.random() * (Zmax5 - Zmin5) + Zmin5;
+
+                var valueX6 = Math.random() * (Xmax6 - Xmin6) + Xmin6;
+                var valueZ6 = Math.random() * (Zmax6 - Zmin6) + Zmin6;
+
+                spline = new THREE.SplineCurve3([
+                    
+                    new THREE.Vector3(0, 0, -3000),
+                    new THREE.Vector3(valueX, 0, valueZ),
+                    new THREE.Vector3(-1798, 0, -758),
+                    new THREE.Vector3(valueX2, 0, valueZ2),
+                    new THREE.Vector3(valueX3, 0, valueZ3),
+                    new THREE.Vector3(1173, 0, valueZ3),
+                    new THREE.Vector3(valueX4, 0, valueZ4),
+                    new THREE.Vector3(1131, 0, -125),
+                    new THREE.Vector3(1399, 0, -1274),
+                    new THREE.Vector3(valueX5, 0, valueZ5),
+                    new THREE.Vector3(valueX6, 0, valueZ6),
+                    new THREE.Vector3(0, 0, -3000)
+                ]);
+
+                var material = new THREE.LineBasicMaterial({
+                    color: 0xff00f0,
+                });
+
+                var geometry = new THREE.Geometry();
+                for (var i = 0; i < spline.getPoints(200).length; i++) {
+                    geometry.vertices.push(spline.getPoints(200)[i]);
+                }
+
+                var line = new THREE.Line(geometry, material);
+                scene.add(line);
+                line.material.visible = false;
+            }
+            Path();
+            //----------------------
+        }
+
+        //fine init
+
+        function getCube() {
+            // cube mats and cube
+            var mats = [];
+            for (var i = 0; i < 6; i++) {
+                mats.push(new THREE.MeshBasicMaterial({
+                    color: Math.random() * 0xffffff
+                }));
+            }
+
+            var cube = new THREE.Mesh(
+                new THREE.CubeGeometry(100, 100, 100, 1, 1, 1),
+                new THREE.MeshFaceMaterial(mats)
+            );
+
+            return cube
+        }
+
+        function ExplodeAnimation(x, y) {
+            var geometry = new THREE.Geometry();
+
+            for (i = 0; i < totalObjects; i++) {
+                var vertex = new THREE.Vector3();
+
+                vertex.x = obj.position.x;
+                vertex.y = obj.position.y + 20;
+                vertex.z = obj.position.z
+                geometry.vertices.push(vertex);
+                dirs.push({
+                    x: (Math.random() * movementSpeed) - (movementSpeed / 2),
+                    y: (Math.random() * movementSpeed) - (movementSpeed / 2),
+                    z: (Math.random() * movementSpeed) - (movementSpeed / 2)
+                });
+            }
+            var material = new THREE.ParticleBasicMaterial({
+                size: objectSize,
+                color: colors[Math.round(Math.random() * colors.length)]
+            });
+            var particles = new THREE.ParticleSystem(geometry, material);
+
+            this.object = particles;
+            this.status = true;
+
+            this.xDir = (Math.random() * movementSpeed) - (movementSpeed / 2);
+            this.yDir = (Math.random() * movementSpeed) - (movementSpeed / 2);
+            this.zDir = (Math.random() * movementSpeed) - (movementSpeed / 2);
+
+            scene.add(this.object);
+
+            setTimeout(function() {
+                scene.remove(particles);
+            }, 1000);
+
+
+            this.update = function() {
+                if (this.status == true) {
+                    var pCount = totalObjects;
+                    while (pCount--) {
+                        var particle = this.object.geometry.vertices[pCount]
+                        particle.y += dirs[pCount].y;
+                        particle.x += dirs[pCount].x;
+                        particle.z += dirs[pCount].z;
+                    }
+                    this.object.geometry.verticesNeedUpdate = true;
+                }
+            }
+
+        }
+
+        function ExplodeAnimation1(x, y) {
+
+
+            var geometry = new THREE.Geometry();
+
+            for (i = 0; i < totalObjects1; i++) {
+                var vertex1 = new THREE.Vector3();
+
+                vertex1.x = EnemyCube.position.x;
+                vertex1.y = EnemyCube.position.y + 20;
+                vertex1.z = EnemyCube.position.z
+                geometry.vertices.push(vertex1);
+                dirs1.push({
+                    x: (Math.random() * movementSpeed) - (movementSpeed / 2),
+                    y: (Math.random() * movementSpeed) - (movementSpeed / 2),
+                    z: (Math.random() * movementSpeed) - (movementSpeed / 2)
+                });
+            }
+            var material1 = new THREE.ParticleBasicMaterial({
+                size: objectSize,
+                color: colors[Math.round(Math.random() * colors.length)]
+            });
+            var particles1 = new THREE.ParticleSystem(geometry, material1);
+
+            this.object = particles1;
+            this.status = true;
+
+            this.xDir = (Math.random() * movementSpeed) - (movementSpeed / 2);
+            this.yDir = (Math.random() * movementSpeed) - (movementSpeed / 2);
+            this.zDir = (Math.random() * movementSpeed) - (movementSpeed / 2);
+
+            scene.add(this.object);
+
+
+            setTimeout(function() {
+                scene.remove(particles1);
+            }, 1000);
+
+            this.update1 = function() {
+                if (this.status == true) {
+                    var pCount1 = totalObjects1;
+                    while (pCount1--) {
+                        var particle1 = this.object.geometry.vertices[pCount1]
+                        particle1.y += dirs1[pCount1].y;
+                        particle1.x += dirs1[pCount1].x;
+                        particle1.z += dirs1[pCount1].z;
+                    }
+                    this.object.geometry.verticesNeedUpdate = true;
+                }
+            }
+
+        }
+
+        function ExplodeAnimation2(x, y) {
+            var geometry = new THREE.Geometry();
+
+            for (i = 0; i < totalObjects; i++) {
+                var vertex = new THREE.Vector3();
+
+                vertex.x = MovingCubeT.position.x;
+                vertex.y = MovingCubeT.position.y + 20;
+                vertex.z = MovingCubeT.position.z
+                geometry.vertices.push(vertex);
+                dirs.push({
+                    x: (Math.random() * movementSpeed) - (movementSpeed / 2),
+                    y: (Math.random() * movementSpeed) - (movementSpeed / 2),
+                    z: (Math.random() * movementSpeed) - (movementSpeed / 2)
+                });
+            }
+            var material = new THREE.ParticleBasicMaterial({
+                size: objectSize,
+                color: colors[Math.round(Math.random() * colors.length)]
+            });
+            var particles = new THREE.ParticleSystem(geometry, material);
+
+            this.object = particles;
+            this.status = true;
+
+            this.xDir = (Math.random() * movementSpeed) - (movementSpeed / 2);
+            this.yDir = (Math.random() * movementSpeed) - (movementSpeed / 2);
+            this.zDir = (Math.random() * movementSpeed) - (movementSpeed / 2);
+
+            scene.add(this.object);
+
+            setTimeout(function() {
+                scene.remove(particles);
+            }, 1000);
+
+            this.update2 = function() {
+                if (this.status == true) {
+                    var pCount2 = totalObjects;
+                    while (pCount2--) {
+                        var particle = this.object.geometry.vertices[pCount2]
+                        particle.y += dirs[pCount2].y;
+                        particle.x += dirs[pCount2].x;
+                        particle.z += dirs[pCount2].z;
+                    }
+                    this.object.geometry.verticesNeedUpdate = true;
+                }
+            }
+
+        }
+
+        function ExplodeAnimation3(x, y) {
+            var geometry = new THREE.Geometry();
+
+            for (i = 0; i < totalObjects; i++) {
+                var vertex = new THREE.Vector3();
+
+                vertex.x = MovingCubeT2.position.x;
+                vertex.y = MovingCubeT2.position.y + 20;
+                vertex.z = MovingCubeT2.position.z
+                geometry.vertices.push(vertex);
+                dirs.push({
+                    x: (Math.random() * movementSpeed) - (movementSpeed / 2),
+                    y: (Math.random() * movementSpeed) - (movementSpeed / 2),
+                    z: (Math.random() * movementSpeed) - (movementSpeed / 2)
+                });
+            }
+            var material = new THREE.ParticleBasicMaterial({
+                size: objectSize,
+                color: colors[Math.round(Math.random() * colors.length)]
+            });
+            var particles = new THREE.ParticleSystem(geometry, material);
+
+            this.object = particles;
+            this.status = true;
+
+            this.xDir = (Math.random() * movementSpeed) - (movementSpeed / 2);
+            this.yDir = (Math.random() * movementSpeed) - (movementSpeed / 2);
+            this.zDir = (Math.random() * movementSpeed) - (movementSpeed / 2);
+
+            scene.add(this.object);
+
+            setTimeout(function() {
+                scene.remove(particles);
+            }, 1000);
+
+            this.update3 = function() {
+                if (this.status == true) {
+                    var pCount3 = totalObjects;
+                    while (pCount3--) {
+                        var particle = this.object.geometry.vertices[pCount3]
+                        particle.y += dirs[pCount3].y;
+                        particle.x += dirs[pCount3].x;
+                        particle.z += dirs[pCount3].z;
+                    }
+                    this.object.geometry.verticesNeedUpdate = true;
+                }
+            }
+
+        }
+
+        function ExplodeAnimation4(x, y) {
+            var geometry = new THREE.Geometry();
+
+            for (i = 0; i < totalObjects; i++) {
+                var vertex = new THREE.Vector3();
+
+                vertex.x = MovingCubeArmBox.position.x;
+                vertex.y = MovingCubeArmBox.position.y + 20;
+                vertex.z = MovingCubeArmBox.position.z
+                geometry.vertices.push(vertex);
+                dirs.push({
+                    x: (Math.random() * movementSpeed) - (movementSpeed / 2),
+                    y: (Math.random() * movementSpeed) - (movementSpeed / 2),
+                    z: (Math.random() * movementSpeed) - (movementSpeed / 2)
+                });
+            }
+            var material = new THREE.ParticleBasicMaterial({
+                size: objectSize,
+                color: colors[Math.round(Math.random() * colors.length)]
+            });
+            var particles = new THREE.ParticleSystem(geometry, material);
+
+            this.object = particles;
+            this.status = true;
+
+            this.xDir = (Math.random() * movementSpeed) - (movementSpeed / 2);
+            this.yDir = (Math.random() * movementSpeed) - (movementSpeed / 2);
+            this.zDir = (Math.random() * movementSpeed) - (movementSpeed / 2);
+
+            scene.add(this.object);
+
+            setTimeout(function() {
+                scene.remove(particles);
+            }, 1000);
+
+            this.update4 = function() {
+                if (this.status == true) {
+                    var pCount4 = totalObjects;
+                    while (pCount4--) {
+                        var particle = this.object.geometry.vertices[pCount4]
+                        particle.y += dirs[pCount4].y;
+                        particle.x += dirs[pCount4].x;
+                        particle.z += dirs[pCount4].z;
+                    }
+                    this.object.geometry.verticesNeedUpdate = true;
+                }
+            }
+
+        }
+
+        function ExplodeAnimation5(x, y) {
+            var geometry = new THREE.Geometry();
+
+            for (i = 0; i < totalObjects; i++) {
+                var vertex = new THREE.Vector3();
+
+                vertex.x = MovingCubeArmBox2.position.x;
+                vertex.y = MovingCubeArmBox2.position.y + 20;
+                vertex.z = MovingCubeArmBox2.position.z
+                geometry.vertices.push(vertex);
+                dirs.push({
+                    x: (Math.random() * movementSpeed) - (movementSpeed / 2),
+                    y: (Math.random() * movementSpeed) - (movementSpeed / 2),
+                    z: (Math.random() * movementSpeed) - (movementSpeed / 2)
+                });
+            }
+            var material = new THREE.ParticleBasicMaterial({
+                size: objectSize,
+                color: colors[Math.round(Math.random() * colors.length)]
+            });
+            var particles = new THREE.ParticleSystem(geometry, material);
+
+            this.object = particles;
+            this.status = true;
+
+            this.xDir = (Math.random() * movementSpeed) - (movementSpeed / 2);
+            this.yDir = (Math.random() * movementSpeed) - (movementSpeed / 2);
+            this.zDir = (Math.random() * movementSpeed) - (movementSpeed / 2);
+
+            scene.add(this.object);
+
+            setTimeout(function() {
+                scene.remove(particles);
+            }, 1000);
+
+            this.update5 = function() {
+                if (this.status == true) {
+                    var pCount5 = totalObjects;
+                    while (pCount5--) {
+                        var particle = this.object.geometry.vertices[pCount5]
+                        particle.y += dirs[pCount5].y;
+                        particle.x += dirs[pCount5].x;
+                        particle.z += dirs[pCount5].z;
+                    }
+                    this.object.geometry.verticesNeedUpdate = true;
+                }
+            }
+
+        }
+
+        function nemici() {
+            //------------Bullet-nemici--------------
+            var bulletNemici = THREE.Object3D.prototype.clone.call(obj1);
+
+            var cubeGeometryB = new THREE.CubeGeometry(10, 50, 50, 5, 5, 5);
+            var wireMaterialB = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                wireframe: true
+            });
+            MovingCubeB = new THREE.Mesh(cubeGeometryB, wireMaterialB);
+            bulletNemici.add(MovingCubeB);
+            MovingCubeB.material.visible = false;
+
+            collidableMeshList2.push(MovingCubeB);
+
+            bulletNemici.rotation.y = Math.PI;
+            bulletNemici.position.set(posit.x, posit.y - 1, posit.z + 50);
+
+            bulletNemici.velocity1 = new THREE.Vector3(-Math.sin(cylinderSx4.rotation.y) * tempo,
+                0,
+                Math.cos(cylinderSx4.rotation.y) * tempo
+
+            );
+
+            bulletNemici.alive = true;
+            setTimeout(function() {
+                bulletNemici.alive = false;
+                scene.remove(bulletNemici);
+                collidableMeshList2.splice(2, 1);
+
+            }, 22000);
+
+            bullets2.push(bulletNemici);
+            scene.add(bulletNemici);
+            canShoot2 = 70;
+
+        }
+
+        function nemiciArm2() {
+            //------------Bullet-nemici--------------
+            var bulletNemiciArm = THREE.Object3D.prototype.clone.call(obj1);
+
+            var cubeGeometryB = new THREE.CubeGeometry(10, 50, 50, 5, 5, 5);
+            var wireMaterialB = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                wireframe: true
+            });
+            MovingCubeArm = new THREE.Mesh(cubeGeometryB, wireMaterialB);
+            bulletNemiciArm.add(MovingCubeArm);
+            MovingCubeArm.material.visible = false;
+
+            collidableMeshList5.push(MovingCubeArm);
+
+            bulletNemiciArm.position.set(posit4.x, posit4.y - 1, posit4.z - 20);
+
+            bulletNemiciArm.velocity5 = new THREE.Vector3(-Math.sin(cylinder4.rotation.y) * tempo,
+                0, -Math.cos(cylinder4.rotation.y) * tempo
+
+            );
+
+            bulletNemiciArm.alive = true;
+            setTimeout(function() {
+                bulletNemiciArm.alive = false;
+                scene.remove(bulletNemiciArm);
+                bullets5.splice(0, 1);
+
+            }, 20000);
+
+            bullets5.push(bulletNemiciArm);
+            scene.add(bulletNemiciArm);
+            canShoot5 = 70;
+
+        }
+
+        function nemiciTorretta() {
+            //------------bulletNemiciT--------------
+
+            bulletNemiciT = THREE.Object3D.prototype.clone.call(obj1);
+
+            var cubeGeometryt = new THREE.CubeGeometry(10, 50, 50, 5, 5, 5);
+            var wireMaterialt = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                wireframe: true
+            });
+            MovingCubet = new THREE.Mesh(cubeGeometryt, wireMaterialt);
+            bulletNemiciT.add(MovingCubet);
+            MovingCubet.material.visible = false;
+
+            collidableMeshListTorretta.push(MovingCubet);
+
+            bulletNemiciT.rotation.set(cylinderSx8.rotation.x, cylinderSx8.rotation.y + Math.PI, cylinderSx8.rotation.z);
+            bulletNemiciT.position.set(
+                cylinderSx8.position.x,
+                cylinderSx8.position.y + 12.5,
+                cylinderSx8.position.z
+            );
+            //QUESTI DUE IF SERVONO A RUOTARE E DIRIGERE I MISSILI NELLA DIREZIONE CORRETTA. X 180° LATO OPPOSTO AL SOLE RISPETTO ALLA SCENA HANNO X E Z SEMPRE = 0. GLI ALTRI 180 HANNO X,Z CHE VARIANO DA -3.14 || +3.14. ECCO IL PERCHE' DI QUESTO CONTROLLO.
+            if (cylinderSx8.rotation.x < -1 || cylinderSx8.rotation.x > 3) {
+                bulletNemiciT.velocity3 = new THREE.Vector3(
+                    Math.sin(cylinderSx8.rotation.y) * tempo,
+                    0, -Math.cos(cylinderSx8.rotation.y) * tempo);
+            } else {
+                bulletNemiciT.velocity3 = new THREE.Vector3(
+                    Math.sin(cylinderSx8.rotation.y) * tempo,
+                    0,
+                    Math.cos(cylinderSx8.rotation.y) * tempo);
+            }
+
+            bullets3.push(bulletNemiciT);
+            scene.add(bulletNemiciT);
+            canShoot3 = 50;
+        }
+
+        function nemiciTorretta2() {
+            //------------bulletNemiciT--------------
+
+            var bulletNemiciTurret = THREE.Object3D.prototype.clone.call(obj1);
+
+            var cubeGeometryt = new THREE.CubeGeometry(10, 50, 50, 5, 5, 5);
+            var wireMaterialt = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                wireframe: true
+            });
+            var MovingCubeturret = new THREE.Mesh(cubeGeometryt, wireMaterialt);
+            bulletNemiciTurret.add(MovingCubeturret);
+            MovingCubeturret.material.visible = false;
+
+            collidableMeshListTorretta.push(MovingCubeturret);
+
+            bulletNemiciTurret.rotation.set(newModel.rotation.x, newModel.rotation.y + Math.PI, newModel.rotation.z);
+            bulletNemiciTurret.position.set(
+                newModel.position.x,
+                newModel.position.y + 12.5,
+                newModel.position.z
+            );
+            //QUESTI DUE IF SERVONO A RUOTARE E DIRIGERE I MISSILI NELLA DIREZIONE CORRETTA. X 180° LATO OPPOSTO AL SOLE RISPETTO ALLA SCENA HANNO X E Z SEMPRE = 0. GLI ALTRI 180 HANNO X,Z CHE VARIANO DA -3.14 || +3.14. ECCO IL PERCHE' DI QUESTO CONTROLLO.
+            if (newModel.rotation.x < -1 || newModel.rotation.x > 3) {
+                bulletNemiciTurret.velocity8 = new THREE.Vector3(
+                    Math.sin(newModel.rotation.y) * tempo,
+                    0, -Math.cos(newModel.rotation.y) * tempo);
+            } else {
+                bulletNemiciTurret.velocity8 = new THREE.Vector3(
+                    Math.sin(newModel.rotation.y) * tempo,
+                    0,
+                    Math.cos(newModel.rotation.y) * tempo);
+            }
+
+            bulletNemiciT.alive = true;
+            setTimeout(function() {
+                bulletNemiciT.alive = false;
+                scene.remove(bulletNemiciT);
+                collidableMeshListTorretta.splice(0, 1); //Rimuovo bullet dall'array dopo 18 secondi. Rimangono i due muri che sono in posizione 0 e 1.
+
+            }, 18000);
+            bullets8.push(bulletNemiciTurret);
+            scene.add(bulletNemiciTurret);
+            canShoot8 = 50;
+        }
+
+
+        function enemyShoot() {
+            //------------bulletNemici-Nave--------------
+
+            var bulletNemiciS = THREE.Object3D.prototype.clone.call(obj1);
+
+            var cubeGeometryt = new THREE.CubeGeometry(10, 50, 50, 5, 5, 5);
+            var wireMaterialt = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                wireframe: true
+            });
+            MovingCubeS = new THREE.Mesh(cubeGeometryt, wireMaterialt);
+            bulletNemiciS.add(MovingCubeS);
+            MovingCubeS.material.visible = false;
+
+            collidableMeshList3.push(MovingCubeS);
+
+            bulletNemiciS.rotation.set(EnemyCube.rotation.x, EnemyCube.rotation.y + Math.PI, EnemyCube.rotation.z);
+            bulletNemiciS.position.set(
+                EnemyCube.position.x,
+                EnemyCube.position.y + 12.5,
+                EnemyCube.position.z
+            );
+            //QUESTI DUE IF SERVONO A RUOTARE E DIRIGERE I MISSILI NELLA DIREZIONE CORRETTA. X 180° LATO OPPOSTO AL SOLE RISPETTO ALLA SCENA HANNO X E Z SEMPRE = 0. GLI ALTRI 180 HANNO X,Z CHE VARIANO DA -3.14 || +3.14. ECCO IL PERCHE' DI QUESTO CONTROLLO.
+            if (EnemyCube.rotation.x < -1 || EnemyCube.rotation.x > 3) {
+                bulletNemiciS.velocity4 = new THREE.Vector3(
+                    Math.sin(EnemyCube.rotation.y) * tempo,
+                    0, -Math.cos(EnemyCube.rotation.y) * tempo);
+            } else {
+                bulletNemiciS.velocity4 = new THREE.Vector3(
+                    Math.sin(EnemyCube.rotation.y) * tempo,
+                    0,
+                    Math.cos(EnemyCube.rotation.y) * tempo);
+            }
+
+            bulletNemiciS.alive = true;
+            setTimeout(function() {
+                bulletNemiciS.alive = false;
+                scene.remove(bulletNemiciS);
+                collidableMeshList3.splice(0, 1); //Rimuovo bullet dall'array dopo 18 secondi. Rimangono i due muri che sono in posizione 0 e 1.
+
+            }, 18000);
+
+            bullets4.push(bulletNemiciS);
+            scene.add(bulletNemiciS);
+            canShoot4 = 50;
+
+        }
+
+        //------------------------------------------
+        function Ogbject3D() {
+            manager = new THREE.LoadingManager();
+            manager.onProgress = function(item, loaded, total) {
+                console.log(item, loaded, total);
+
+            };
+
+            loader = new THREE.OBJLoader(manager);
+
+            THREE.Loader.Handlers.add(/\.dds$/i, new THREE.DDSLoader());
+            new THREE.MTLLoader(loadingManager)
+                .setPath('obj/boat/Crocodile_Gunboat/')
+                .load('Crocodile Gunboat.mtl', function(materials) {
+                    materials.preload();
+                    new THREE.OBJLoader(loadingManager)
+                        .setMaterials(materials)
+                        .setPath('obj/boat/Crocodile_Gunboat/')
+                        .load('Crocodile Gunboat.obj', function(object) {
+
+                            object.position.y = -8.5;
+                            object.rotation.y = Math.PI;
+
+                            obj = object;
+                            bbox = new THREE.BoxHelper(obj, 0xffffff);
+                            bbox.update();
+                            bbox.material.visible = false;
+
+
+                            scene.add(obj);
+                            scene.add(bbox);
+                            obj.add(bbox);
+                            bbox.add(camera);
+
+                            obj.scale.x = 3.5;
+                            obj.scale.y = 3.5;
+                            obj.scale.z = 3.5;
+
+                        });
+
+                });
+
+
+            loader.load('obj/AIM120D.obj', function(object1) {
+
+                var textureLoader1 = new THREE.TextureLoader(loadingManager);
+                var boat3 = textureLoader1.load('textures/white.jpg');
+                var boat4 = textureLoader1.load('textures/waternormals.jpg');
+
+                object1.traverse(function(child1) {
+
+
+                    if (child1 instanceof THREE.Mesh) {
+                        child1.material.shininess = 100;
+                        child1.material.wireframe = false;
+                        child1.material.normalScale = new THREE.Vector2(1, 1);
+                        child1.material.map = boat3;
+                        child1.material.needsUpdate = true;
+                    }
+                });
+
+                obj1 = object1;
+                obj1.scale.x = 0.5;
+                obj1.scale.y = 0.5;
+                obj1.scale.z = 0.5;
+
+            });
+            //BOAT-ENEMYS
+
+            THREE.Loader.Handlers.add(/\.dds$/i, new THREE.DDSLoader());
+            new THREE.MTLLoader(loadingManager)
+                .setPath('obj/boat/Bladesong_Missile_Boat/')
+                .load('Bladesong Missile Boat.mtl', function(materials) {
+                    materials.preload();
+                    new THREE.OBJLoader(loadingManager)
+                        .setMaterials(materials)
+                        .setPath('obj/boat/Bladesong_Missile_Boat/')
+                        .load('Bladesong Missile Boat.obj', function(object10) {
+                            object10.position.y = -15;
+
+                            object10.scale.x = 5;
+                            object10.scale.y = 5;
+                            object10.scale.z = 5;
+
+                            scene.add(object10);
+                            EnemyCube.add(object10);
+
+                        });
+                });
+
+            var onError = function(xhr) {};
+            THREE.Loader.Handlers.add(/\.dds$/i, new THREE.DDSLoader());
+            new THREE.MTLLoader(loadingManager)
+                .setPath('obj/isola/tzfhx79fnc-castle/castle/')
+                .load('castle.mtl', function(materials) {
+                    materials.preload();
+                    new THREE.OBJLoader(loadingManager)
+                        .setMaterials(materials)
+                        .setPath('obj/isola/tzfhx79fnc-castle/castle/')
+                        .load('castle.obj', function(object5) {
+
+                            scene.add(object5);
+
+                            object5.position.z = -3100;
+                            object5.position.x = -160;
+                            object5.position.y = +50;
+
+                            object5.rotation.y = Math.PI / 6;
+                            object5.scale.x = 1.5;
+                            object5.scale.y = 1.5;
+                            object5.scale.z = 1.5;
+
+                        });
+                });
+
+            THREE.Loader.Handlers.add(/\.dds$/i, new THREE.DDSLoader());
+            new THREE.MTLLoader(loadingManager)
+                .setPath('obj/isola/plkhethm47-SciFiTropicalCity/scifi tropical city/')
+                .load('Sci-fi_Tropical_city.mtl', function(materials) {
+                    materials.preload();
+                    new THREE.OBJLoader(loadingManager)
+                        .setMaterials(materials)
+                        .setPath('obj/isola/plkhethm47-SciFiTropicalCity/scifi tropical city/')
+                        .load('Sci-fi-Tropical-city.obj', function(object6) {
+                            scene.add(object6);
+                            object6.position.z = -2100;
+                            object6.position.x = 700;
+                            object6.position.y = -10;
+                            object6.rotation.y = -Math.PI / 4;
+                            object6.scale.x = 1.5;
+                            object6.scale.y = 1.5;
+                            object6.scale.z = 1.5;
+
+                        });
+                });
+            THREE.Loader.Handlers.add(/\.dds$/i, new THREE.DDSLoader());
+            new THREE.MTLLoader(loadingManager)
+                .setPath('obj/isola/Small Tropical Island/')
+                .load('Small_Tropical_Island.mtl', function(materials) {
+                    materials.preload();
+                    new THREE.OBJLoader(loadingManager)
+                        .setMaterials(materials)
+                        .setPath('obj/isola/Small Tropical Island/')
+                        .load('Small Tropical Island.obj', function(object7) {
+                            scene.add(object7);
+                            object7.position.z = -650;
+                            object7.position.x = -1400;
+                            object7.position.y = -10;
+                            object7.rotation.y = -Math.PI;
+                            object7.scale.x = 1;
+                            object7.scale.y = 1;
+                            object7.scale.z = 1;
+                        });
+                });
+
+            THREE.Loader.Handlers.add(/\.dds$/i, new THREE.DDSLoader());
+            new THREE.MTLLoader(loadingManager)
+                .setPath('obj/isola/Small Tropical Island/')
+                .load('Small_Tropical_Island.mtl', function(materials) {
+                    materials.preload();
+                    new THREE.OBJLoader(loadingManager)
+                        .setMaterials(materials)
+                        .setPath('obj/isola/Small Tropical Island/')
+                        .load('Small Tropical Island.obj', function(object11) {
+                            scene.add(object11);
+                            object11.position.z = -650;
+                            object11.position.x = 800;
+                            object11.position.y = -10;
+                            object11.rotation.y = -Math.PI / 2;
+                            object11.scale.x = 1;
+                            object11.scale.y = 1;
+                            object11.scale.z = 1;
+                        });
+                });
+
+        }
+
+        function onWindowResize() {
+
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+        }
+
+        function animate() {
+
+            if (RESOURCES_LOADED == false) {
+                document.getElementById("lifeBar").style.display = "none";
+                document.getElementById("center").style.display = "none";
+                requestAnimationFrame(animate),
+                    renderer.render(loadingScreen.scene, loadingScreen.camera);
+                return;
+            }
+
+            document.getElementById("lifeBar").style.display = "block";
+            document.getElementById("loadingBar").style.display = "none";
+            document.getElementById("center").style.display = "block";
+
+            requestAnimationFrame(animate);
+            render();
+            update();
+
+        }
+
+
+        function arm() {
+            var lunghezzaBraccio = 0.55;
+            // CYLINDER
+            var cyl_material = new THREE.MeshBasicMaterial({
+                map: THREE.ImageUtils.loadTexture('textures/1.jpg')
+            });
+            var cyl_width = 0.05;
+
+            var cylGeometry = new THREE.CylinderGeometry(cyl_width, cyl_width, lunghezzaBraccio, 16, 8, false);
+            // translate the cylinder geometry so that the desired point within the geometry is now at the origin
+            cylGeometry.applyMatrix(new THREE.Matrix4().makeTranslation(-1.5, lunghezzaBraccio, 0.855));
+            cylinderSx = new THREE.Mesh(cylGeometry, cyl_material);
+
+            cylinderSx.castShadow = true; //default is false
+
+            scene.add(cylinderSx);
+
+            cylinderSx.scale.y = 100;
+            cylinderSx.scale.x = 100;
+            cylinderSx.scale.z = 100;
+            cylinderSx.position.y = -80;
+
+            cylinderSx.position.z = -3000;
+            cylinderSx.position.x = -25;
+            cylinderSx.rotation.y = -Math.PI / 2;
+
+            //------------------------------------
+
+            var lunghezzaBraccio2 = Math.sqrt(2) * 0.6;
+            var angoloBraccio2 = -Math.PI / 4;
+
+            var cyl_material2 = new THREE.MeshBasicMaterial({
+                map: THREE.ImageUtils.loadTexture('textures/1.jpg')
+            });
+            var cyl_width = 0.05;
+
+            var cylGeometry2 = new THREE.CylinderGeometry(cyl_width, cyl_width, lunghezzaBraccio2, 16, 4, false);
+            // translate the cylinder geometry so that the desired point within the geometry is now at the origin
+            cylGeometry2.applyMatrix(new THREE.Matrix4().makeTranslation(0, lunghezzaBraccio2 / 2, 0));
+            cylinderSx2 = new THREE.Mesh(cylGeometry2, cyl_material2);
+
+            scene.add(cylinderSx2);
+
+            cylinderSx2.rotation.x = (angoloBraccio2);
+            cylinderSx2.translateX(-1.5);
+            cylinderSx2.translateZ(1.2);
+
+            cylinderSx2.castShadow = true; //default is false
+
+            cylinderSx.add(cylinderSx2);
+
+            endEffectorSx = new THREE.Mesh(new THREE.SphereGeometry(0.05, 0.1, 0.1),
+                new THREE.MeshLambertMaterial({
+                    map: THREE.ImageUtils.loadTexture('textures/1.jpg')
+                }));
+            scene.add(endEffectorSx);
+            cylinderSx2.add(endEffectorSx);
+
+            var lunghezzaBraccio3 = lunghezzaBraccio2;
+            var angoloBraccio3 = -Math.PI / 2;
+
+            //------------------------------------------------
+
+            var cyl_material3 = new THREE.MeshBasicMaterial({
+                map: THREE.ImageUtils.loadTexture('textures/1.jpg')
+            });
+
+            var cylGeometry3 = new THREE.CylinderGeometry(cyl_width, cyl_width, lunghezzaBraccio3, 16, 4, false);
+            // translate the cylinder geometry so that the desired point within the geometry is now at the origin
+            cylGeometry3.applyMatrix(new THREE.Matrix4().makeTranslation(0, lunghezzaBraccio3 / 2, 0));
+            cylinderSx3 = new THREE.Mesh(cylGeometry3, cyl_material3);
+
+            scene.add(cylinderSx3);
+            cylinderSx3.translateY(lunghezzaBraccio2 / 2 + lunghezzaBraccio3 / 2);
+            cylinderSx3.rotation.x = (angoloBraccio3);
+            
+            cylinderSx3.castShadow = true; //default is false
+            cylinderSx2.add(cylinderSx3);
+
+            endEffectorSx2 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 0.1, 0.1),
+                new THREE.MeshLambertMaterial({
+                    map: THREE.ImageUtils.loadTexture('textures/1.jpg')
+                }));
+            scene.add(endEffectorSx2);
+            cylinderSx3.add(endEffectorSx2);
+
+            var lunghezzaBraccio4 = 0.338;
+            var angoloBraccio4 = -angoloBraccio2;
+
+            //----------------------------------------------------------
+
+            var cyl_material4 = new THREE.MeshBasicMaterial({
+                map: THREE.ImageUtils.loadTexture('textures/1.jpg')
+            });
+
+            var cylGeometry4 = new THREE.CylinderGeometry(0.05, 0.05, lunghezzaBraccio4, 16, 4, false);
+            // translate the cylinder geometry so that the desired point within the geometry is now at the origin
+            cylGeometry4.applyMatrix(new THREE.Matrix4().makeTranslation(0, lunghezzaBraccio4 / 2, 0));
+            cylinderSx4 = new THREE.Mesh(cylGeometry4, cyl_material4);
+
+            cylinderSx4.castShadow = true; //default is false
+
+            scene.add(cylinderSx4);
+
+            cylinderSx4.translateY(lunghezzaBraccio3);
+            cylinderSx4.rotation.x = (angoloBraccio4);
+            cylinderSx4.rotation.z = -(Math.PI / 2);
+
+            cylinderSx3.add(cylinderSx4);
+            
+            endEffectorSx3 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 0.1, 0.1),
+                new THREE.MeshLambertMaterial({
+                    map: THREE.ImageUtils.loadTexture('textures/1.jpg')
+                }));
+            scene.add(endEffectorSx3);
+            cylinderSx4.add(endEffectorSx3);
+
+            //-------------cilindro-vuoto--
+            var smallCylinderGeom = new THREE.CylinderGeometry(10, 10, 40, 10, 4);
+            var largeCylinderGeom = new THREE.CylinderGeometry(10, 10, 40, 20, 4);
+
+            var smallCylinderBSP = new ThreeBSP(smallCylinderGeom);
+            var largeCylinderBSP = new ThreeBSP(largeCylinderGeom);
+            var intersectionBSP = largeCylinderBSP.subtract(smallCylinderBSP);
+
+            var redMaterial = new THREE.MeshLambertMaterial({
+                color: 0xff0000
+            });
+            hollowCylinder = intersectionBSP.toMesh(redMaterial);
+            scene.add(hollowCylinder);
+
+            hollowCylinder.position.set(-470, 0, -3151);
+            hollowCylinder.rotation.x = Math.PI / 2;
+
+            //---Cambio la posizione iniziale dei due cilindri.
+            cylinderSx2.rotation.x = -0.3;
+            cylinderSx3.rotation.x = -2.5;
+            
+            var cubeGeometry = new THREE.CubeGeometry(25, 135, 121, 10, 10, 10);
+            var wireMaterialBoat = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                wireframe: true
+            });
+
+            MovingCube = new THREE.Mesh(cubeGeometry, wireMaterialBoat);
+            scene.add(MovingCube);
+            MovingCube.material.visible = false;
+            collidableMeshList0.push(MovingCube);
+
+            //----------------------------------------------
+            //---seondo braccio
+        }
+
+        function turret() {
+
+            var cyl_material8 = new THREE.MeshBasicMaterial({
+                map: THREE.ImageUtils.loadTexture('textures/1.jpg')
+            });
+            var cylGeometry8 = new THREE.CylinderGeometry(8, 8, 30, 32, false);
+            cylGeometry8.applyMatrix(new THREE.Matrix4().makeTranslation(0, 0, 0));
+            cylinderSx8 = new THREE.Mesh(cylGeometry8, cyl_material8);
+            cylinderSx8.castShadow = true; //default is false
+            scene.add(cylinderSx8);
+            cylinderSx8.position.z = -1500;
+
+            var cyl_material9 = new THREE.MeshBasicMaterial({
+                map: THREE.ImageUtils.loadTexture('textures/1.jpg')
+            });
+            var cylGeometry9 = new THREE.CylinderGeometry(8, 8, 20, 32, false);
+            cylGeometry9.applyMatrix(new THREE.Matrix4().makeTranslation(0, 10, -15));
+            cylinderSx9 = new THREE.Mesh(cylGeometry9, cyl_material9);
+            cylinderSx9.castShadow = true; //default is false
+
+            scene.add(cylinderSx8);
+            cylinderSx8.add(cylinderSx9);
+            cylinderSx9.rotation.x = Math.PI / 2;
+
+            //Sfera torretta
+            var material1 = new THREE.MeshBasicMaterial({
+                map: THREE.ImageUtils.loadTexture('textures/1.jpg')
+            });
+            var geometry1 = new THREE.SphereGeometry(8, 32, 32);
+            geometry1.applyMatrix(new THREE.Matrix4().makeTranslation(0, 15, 0));
+            var sphere1 = new THREE.Mesh(geometry1, material1);
+            scene.add(sphere1);
+            cylinderSx8.add(sphere1);
+
+            //cubo x collisioni
+            var cubeGeometry = new THREE.CubeGeometry(30, 25, 30, 4, 4, 4);
+            var wireMaterial = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                wireframe: true
+            });
+
+            MovingCubeT2 = new THREE.Mesh(cubeGeometry, wireMaterial);
+            scene.add(MovingCubeT2);
+            collidableMeshListTurret.push(MovingCubeT2);
+            MovingCubeT2.position.z = -1500;
+            MovingCubeT2.material.visible = false;
+
+        }
+
+        function addModel() {
+            window.newModel = cylinderSx8.clone();
+            newModel.name = "model-" + scene.children.length;
+
+            var Xmin = -3614;
+            var Xmax = -800; //Primo rettangolo di cordinate
+            var Zmin = -1051; //Primo rettangolo di cordinate
+            var Zmax = -3667;
+            var valueX = Math.random() * (Xmax - Xmin) + Xmin;
+            var valueZ = Math.random() * (Zmax - Zmin) + Zmin;
+
+            var cubeGeometry = new THREE.CubeGeometry(30, 25, 30, 4, 4, 4);
+            var wireMaterial = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                wireframe: true
+            });
+            window.MovingCubeT = new THREE.Mesh(cubeGeometry, wireMaterial);
+            scene.add(MovingCubeT);
+            collidableMeshListTurret.push(MovingCubeT);
+
+            newModel.position.x = valueX;
+            newModel.position.z = valueZ;
+            MovingCubeT.position.x = valueX;
+            MovingCubeT.position.z = valueZ;
+            scene.add(newModel);
+            MovingCubeT.material.visible = false;
+
+        }
+
+        function BoxArm() {
+            var cubeGeometry = new THREE.CubeGeometry(160, 25, 20, 4, 4, 4);
+            var wireMaterial = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                wireframe: true
+            });
+            window.MovingCubeArmBox = new THREE.Mesh(cubeGeometry, wireMaterial);
+            MovingCubeArmBox.position.z = -3140;
+            MovingCubeArmBox.position.x = -25;
+            scene.add(MovingCubeArmBox);
+            MovingCubeArmBox.material.visible = false;
+        }
+
+        function BoxArm2() {
+            var cubeGeometry = new THREE.CubeGeometry(160, 25, 20, 4, 4, 4);
+            var wireMaterial = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                wireframe: true
+            });
+            window.MovingCubeArmBox2 = new THREE.Mesh(cubeGeometry, wireMaterial);
+            MovingCubeArmBox2.position.z = -450;
+            MovingCubeArmBox2.position.x = -1060;
+            scene.add(MovingCubeArmBox2);
+            MovingCubeArmBox2.material.visible = false;
+
+        }
+
+        function arm2() {
+            var lunghezzaBraccio = 0.84;
+
+            // CYLINDER
+            var cyl_material = new THREE.MeshBasicMaterial({
+                map: THREE.ImageUtils.loadTexture('textures/1.jpg'),
+                color: 0x2181FF
+            });
+            var cyl_width = 0.05;
+
+            var cylGeometry = new THREE.CylinderGeometry(cyl_width, cyl_width, lunghezzaBraccio, 16, 4, false);
+            // translate the cylinder geometry so that the desired point within the geometry is now at the origin
+            cylGeometry.applyMatrix(new THREE.Matrix4().makeTranslation(1.5, lunghezzaBraccio / 2, 0.86));
+            cylinder = new THREE.Mesh(cylGeometry, cyl_material);
+
+            cylinder.castShadow = true; //default is false
+
+            scene.add(cylinder);
+
+            cylinder.position.y = -80;
+            cylinder.position.z = -600;
+            cylinder.position.x = -1060;
+            cylinder.rotation.y = -Math.PI / 2;
+            cylinder.scale.y = 100;
+            cylinder.scale.x = 100;
+            cylinder.scale.z = 100;
+
+            var lunghezzaBraccio2 = Math.sqrt(2) * 0.6;
+            var angoloBraccio2 = -Math.PI / 4;
+
+            // CYLINDER
+            var cyl_material2 = new THREE.MeshBasicMaterial({
+                map: THREE.ImageUtils.loadTexture('textures/1.jpg'),
+                color: 0x2181FF
+            });
+            var cyl_width = 0.05;
+
+            var cylGeometry2 = new THREE.CylinderGeometry(cyl_width, cyl_width, lunghezzaBraccio2, 16, 4, false);
+            // translate the cylinder geometry so that the desired point within the geometry is now at the origin
+            cylGeometry2.applyMatrix(new THREE.Matrix4().makeTranslation(0, lunghezzaBraccio2 / 2, 0));
+            cylinder2 = new THREE.Mesh(cylGeometry2, cyl_material2);
+
+            scene.add(cylinder2);
+
+            cylinder2.rotation.x = (angoloBraccio2);
+            cylinder2.translateX(1.5);
+            cylinder2.translateZ(1.2);
+
+            cylinder2.castShadow = true; //default is false
+
+            cylinder.add(cylinder2);
+
+            //AGGIUNGO GOMITO
+            endEffector = new THREE.Mesh(new THREE.SphereGeometry(0.05, 0.1, 0.1),
+                new THREE.MeshLambertMaterial({
+                    map: THREE.ImageUtils.loadTexture('textures/1.jpg'),
+                    color: 0xFFFFFF
+                }));
+            scene.add(endEffector);
+            cylinder2.add(endEffector);
+
+            var lunghezzaBraccio3 = lunghezzaBraccio2;
+            var angoloBraccio3 = -Math.PI / 2;
+
+
+
+            var cyl_material3 = new THREE.MeshBasicMaterial({
+                map: THREE.ImageUtils.loadTexture('textures/1.jpg'),
+                color: 0xFFFFFF
+            });
+
+            var cylGeometry3 = new THREE.CylinderGeometry(cyl_width, cyl_width, lunghezzaBraccio3, 16, 4, false);
+            // translate the cylinder geometry so that the desired point within the geometry is now at the origin
+            cylGeometry3.applyMatrix(new THREE.Matrix4().makeTranslation(0, lunghezzaBraccio3 / 2, 0));
+            cylinder3 = new THREE.Mesh(cylGeometry3, cyl_material3);
+
+            scene.add(cylinder3);
+
+            cylinder3.translateY(lunghezzaBraccio2 / 2 + lunghezzaBraccio3 / 2);
+            cylinder3.rotation.x = (angoloBraccio3);
+
+            cylinder3.castShadow = true; //default is false
+            cylinder2.add(cylinder3);
+
+            var lunghezzaBraccio4 = 0.138;
+            var angoloBraccio4 = -angoloBraccio2;
+
+            endEffector2 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 0.1, 0.1),
+                new THREE.MeshLambertMaterial({
+                    map: THREE.ImageUtils.loadTexture('textures/1.jpg'),
+                    color: 0xffec00
+                }));
+            scene.add(endEffector2);
+            cylinder3.add(endEffector2);
+
+
+            var cyl_material4 = new THREE.MeshBasicMaterial({
+                map: THREE.ImageUtils.loadTexture('textures/1.jpg'),
+                color: 0xFFFFFF
+            });
+
+            var cylGeometry4 = new THREE.CylinderGeometry(cyl_width, cyl_width, lunghezzaBraccio4, 16, 4, false);
+            // translate the cylinder geometry so that the desired point within the geometry is now at the origin
+            cylGeometry4.applyMatrix(new THREE.Matrix4().makeTranslation(0, lunghezzaBraccio4 / 2, 0));
+            cylinder4 = new THREE.Mesh(cylGeometry4, cyl_material4);
+
+            scene.add(cylinder4);
+
+            cylinder4.translateY(lunghezzaBraccio3);
+            cylinder4.rotation.x = (angoloBraccio4);
+           
+            cylinder4.rotation.z = (Math.PI / 2);
+
+            cylinder4.castShadow = true; //default is false
+
+            cylinder3.add(cylinder4);
+            
+            endEffector3 = new THREE.Mesh(new THREE.SphereGeometry(0.05, 0.1, 0.1),
+                new THREE.MeshLambertMaterial({
+                    map: THREE.ImageUtils.loadTexture('textures/1.jpg'),
+                    color: 0x00C0FF
+                }));
+            scene.add(endEffector3);
+            cylinder4.add(endEffector3);
+        }
+
+        function WallBox() {
+            //Muri-----------------------------------------
+            //Wall UP
+            var cubeGeometry2 = new THREE.CubeGeometry(7910, 200, 50, 6, 6, 6);
+            var wireMaterial2 = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                wireframe: true
+            });
+            MovingCube2 = new THREE.Mesh(cubeGeometry2, wireMaterial2);
+            scene.add(MovingCube2);
+            bbox4 = new THREE.BoxHelper(MovingCube2, 0xffffff);
+            bbox4.update();
+            bbox4.material.visible = false;
+            scene.add(bbox4);
+            MovingCube2.add(bbox4);
+            MovingCube2.position.set(0, 0, -4000);
+            MovingCube2.material.visible = false;
+            //Wall DOWN
+            MovingCube3 = new THREE.Mesh(cubeGeometry2, wireMaterial2);
+            scene.add(MovingCube3);
+            bboxWall0 = new THREE.BoxHelper(MovingCube3, 0xffffff);
+            bboxWall0.update();
+            bboxWall0.material.visible = false;
+            scene.add(bboxWall0);
+            MovingCube3.add(bboxWall0);
+            MovingCube3.position.set(0, 0, 4000);
+            MovingCube3.material.visible = false;
+
+            var cubeGeometry3 = new THREE.CubeGeometry(50, 200, 7910, 6, 6, 6);
+            var wireMaterial3 = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                wireframe: true
+            });
+            //Wall DX
+            MovingCube4 = new THREE.Mesh(cubeGeometry3, wireMaterial3);
+            scene.add(MovingCube4);
+            bboxWall1 = new THREE.BoxHelper(MovingCube4, 0xffffff);
+            bboxWall1.update();
+            bboxWall1.material.visible = false;
+            scene.add(bboxWall1);
+            MovingCube4.add(bboxWall1);
+            MovingCube4.position.set(-4000, 0, 0);
+            MovingCube4.material.visible = false;
+            //Wall SX
+            MovingCube5 = new THREE.Mesh(cubeGeometry3, wireMaterial3);
+            scene.add(MovingCube5);
+            bboxWall2 = new THREE.BoxHelper(MovingCube5, 0xffffff);
+            bboxWall2.update();
+            bboxWall2.material.visible = false;
+            scene.add(bboxWall2);
+            MovingCube5.add(bboxWall2);
+            MovingCube5.position.set(4000, 0, 0);
+            MovingCube5.material.visible = false;
+
+            //Isola 
+            var cubeGeometryIsola = new THREE.CubeGeometry(400, 100, 340, 6, 6, 6);
+            var wireMaterialIsola = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                wireframe: true
+            });
+            MovingCubeIsola = new THREE.Mesh(cubeGeometryIsola, wireMaterialIsola);
+            scene.add(MovingCubeIsola);
+            MovingCubeIsola.position.set(-260, 0, -3200);
+            MovingCubeIsola.rotation.y = Math.PI / 4
+            collidableMeshList.push(MovingCubeIsola);
+            MovingCubeIsola.material.visible = false;
+
+            //Isola2
+            var cubeGeometryIsola2 = new THREE.CubeGeometry(700, 100, 700, 6, 6, 6);
+            var wireMaterialIsola2 = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                wireframe: true
+            });
+            MovingCubeIsola2 = new THREE.Mesh(cubeGeometryIsola2, wireMaterialIsola2);
+            scene.add(MovingCubeIsola2);
+            MovingCubeIsola2.position.set(650, 0, -2100);
+            collidableMeshList.push(MovingCubeIsola2);
+            MovingCubeIsola2.material.visible = false;
+            //Isola3
+            var cubeGeometryIsola3 = new THREE.CubeGeometry(620, 100, 620, 6, 6, 6);
+            var wireMaterialIsola3 = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                wireframe: true
+            });
+            MovingCubeIsola3 = new THREE.Mesh(cubeGeometryIsola3, wireMaterialIsola3);
+            scene.add(MovingCubeIsola3);
+            MovingCubeIsola3.position.set(-1450, 0, -650);
+            collidableMeshList.push(MovingCubeIsola3);
+            MovingCubeIsola3.material.visible = false;
+            //Isola4
+            var cubeGeometryIsola4 = new THREE.CubeGeometry(620, 100, 620, 6, 6, 6);
+            var wireMaterialIsola4 = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                wireframe: true
+            });
+            MovingCubeIsola4 = new THREE.Mesh(cubeGeometryIsola4, wireMaterialIsola4);
+            scene.add(MovingCubeIsola4);
+            MovingCubeIsola4.position.set(800, 0, -650);
+            collidableMeshList.push(MovingCubeIsola4);
+            MovingCubeIsola4.material.visible = false;
+
+        }
+
+        function MagicPort() {
+            //UP
+            //SX
+            var smallCylinderGeom2 = new THREE.CylinderGeometry(200, 200, 50, 40, 10);
+            var largeCylinderGeom2 = new THREE.CylinderGeometry(200, 200, 50, 80, 10);
+
+            var smallCylinderBSP2 = new ThreeBSP(smallCylinderGeom2);
+            var largeCylinderBSP2 = new ThreeBSP(largeCylinderGeom2);
+            var intersectionBSP2 = largeCylinderBSP2.subtract(smallCylinderBSP2);
+
+            var redMaterial2 = new THREE.MeshLambertMaterial({
+                color: 0xff0000
+            });
+            hollowCylinder2 = intersectionBSP2.toMesh(redMaterial2);
+            scene.add(hollowCylinder2);
+
+            hollowCylinder2.rotation.z = -Math.PI / 5;
+            hollowCylinder2.rotation.x = Math.PI / 2;
+            hollowCylinder2.position.set(-3850, 0, -3850);
+            //UP
+            //DX
+            var smallCylinderGeom3 = new THREE.CylinderGeometry(200, 200, 50, 40, 10);
+            var largeCylinderGeom3 = new THREE.CylinderGeometry(200, 200, 50, 80, 10);
+
+            var smallCylinderBSP3 = new ThreeBSP(smallCylinderGeom3);
+            var largeCylinderBSP3 = new ThreeBSP(largeCylinderGeom3);
+            var intersectionBSP3 = largeCylinderBSP3.subtract(smallCylinderBSP3);
+
+            var redMaterial3 = new THREE.MeshLambertMaterial({
+                color: 0xff0000
+            });
+            hollowCylinder3 = intersectionBSP3.toMesh(redMaterial3);
+            scene.add(hollowCylinder3);
+
+            hollowCylinder3.rotation.z = Math.PI / 5;
+            hollowCylinder3.rotation.x = Math.PI / 2;
+            hollowCylinder3.position.set(3850, 0, -3850);
+            //DOWN
+            //SX
+            var smallCylinderGeom4 = new THREE.CylinderGeometry(200, 200, 50, 40, 10);
+            var largeCylinderGeom4 = new THREE.CylinderGeometry(200, 200, 50, 80, 10);
+
+            var smallCylinderBSP4 = new ThreeBSP(smallCylinderGeom4);
+            var largeCylinderBSP4 = new ThreeBSP(largeCylinderGeom4);
+            var intersectionBSP4 = largeCylinderBSP4.subtract(smallCylinderBSP4);
+
+            var redMaterial4 = new THREE.MeshLambertMaterial({
+                color: 0xff0000
+            });
+            hollowCylinder4 = intersectionBSP4.toMesh(redMaterial4);
+            scene.add(hollowCylinder4);
+
+            hollowCylinder4.rotation.z = Math.PI / 5;
+            hollowCylinder4.rotation.x = Math.PI / 2;
+            hollowCylinder4.position.set(-3850, 0, 3850);
+            //DOWN
+            //DX
+            var smallCylinderGeom5 = new THREE.CylinderGeometry(200, 200, 50, 40, 10);
+            var largeCylinderGeom5 = new THREE.CylinderGeometry(200, 200, 50, 80, 10);
+
+            var smallCylinderBSP5 = new ThreeBSP(smallCylinderGeom5);
+            var largeCylinderBSP5 = new ThreeBSP(largeCylinderGeom5);
+            var intersectionBSP5 = largeCylinderBSP5.subtract(smallCylinderBSP5);
+
+            var redMaterial5 = new THREE.MeshLambertMaterial({
+                color: 0xff0000
+            });
+            hollowCylinder5 = intersectionBSP5.toMesh(redMaterial5);
+            scene.add(hollowCylinder5);
+
+            hollowCylinder5.rotation.z = Math.PI / 5;
+            hollowCylinder5.rotation.x = -Math.PI / 2;
+            hollowCylinder5.position.set(3850, 0, 3850);
+        }
+
+        function Enemy() {
+            var cubeGeometry2 = new THREE.CubeGeometry(50, 100, 200, 6, 6, 6);
+            var wireMaterial2 = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                wireframe: true
+            });
+            EnemyCube = new THREE.Mesh(cubeGeometry2, wireMaterial2);
+            bboxEnemy = new THREE.BoxHelper(EnemyCube, 0xffffff);
+            bboxEnemy.update();
+            bboxEnemy.material.visible = false;
+            EnemyCube.material.visible = false;
+
+            return (EnemyCube);
+
+        }
+
+        function removelifepoint() {
+            if (valore > 0) {
+                valore = valore - 25;
+                bar.set(valore);
+            }
+            if (valore == 0) {
+                gameOver();
+            }
+        }
+
+        function myBullet() {
+            bullet = THREE.Object3D.prototype.clone.call(obj1);
+
+            scene.add(bullet);
+
+            var cubeGeometryt = new THREE.CubeGeometry(10, 50, 50, 5, 5, 5);
+            var wireMaterialt = new THREE.MeshBasicMaterial({
+                color: 0xff0000,
+                wireframe: true
+            });
+            MovingCubeBoat = new THREE.Mesh(cubeGeometryt, wireMaterialt);
+            bullet.add(MovingCubeBoat);
+            MovingCubeBoat.material.visible = false;
+
+            collidableMeshList1.push(MovingCubeBoat);
+
+            bullet.rotation.set(MovingCube.rotation.x, MovingCube.rotation.y, MovingCube.rotation.z);
+            bullet.position.set(
+                obj.position.x,
+                obj.position.y + 8,
+                obj.position.z
+            );
+
+            //QUESTI DUE IF SERVONO A RUOTARE E DIRIGERE I MISSILI NELLA DIREZIONE CORRETTA. X 180° LATO OPPOSTO AL SOLE RISPETTO ALLA SCENA HANNO X E Z SEMPRE = 0. GLI ALTRI 180 HANNO X,Z CHE VARIANO DA -3.14 || +3.14. ECCO IL PERCHE' DI QUESTO CONTROLLO.
+            if (obj.rotation.x < -1 || obj.rotation.x > 3) {
+                bullet.velocity = new THREE.Vector3(
+                    Math.sin(obj.rotation.y) * 8,
+                    0, -Math.cos(obj.rotation.y) * 8
+                );
+            } else {
+                bullet.velocity = new THREE.Vector3(
+                    Math.sin(obj.rotation.y) * 8,
+                    0,
+                    Math.cos(obj.rotation.y) * 8
+                );
+            }
+            // after 1000ms, set alive to false and remove from scene
+            // setting alive to false flags our update code to remove
+            // the bullet from the bullets array
+
+            bullet.alive = true;
+            
+            bullets.push(bullet);
+            scene.add(bullet);
+            canShoot = 40;
+            countBullets += 1;
+        }
+
+        function update() {
+            var time = Date.now() * 0.0005;
+            var delta = clock.getDelta(); // seconds.
+            var moveDistance = 200 * delta; // 100 pixels per second //150
+            var rotateAngle = Math.PI / 5 * delta; // pi/2 radians (90 degrees) per second //Math.PI / 5 * delta
+
+            // go through bullets array and update position
+            // remove bullets when appropriate
+
+            for (var index = 0; index < bullets.length; index += 1) {
+                if (bullets[index] === undefined) continue;
+                if (bullets[index].alive == false) {
+                    bullets.splice(index, 1);
+                    continue;
+                }
+
+                bullets[index].position.add(bullets[index].velocity);
+            }
+
+
+            for (var index1 = 0; index1 < bullets2.length; index1 += 1) {
+                if (bullets2[index1] === undefined) continue;
+                if (bullets2[index1].alive == false) {
+                    bullets2.splice(index1, 1);
+                    continue;
+                }
+
+                bullets2[index1].position.add(bullets2[index1].velocity1);
+            }
+
+            for (var index3 = 0; index3 < bullets3.length; index3 += 1) {
+                if (bullets3[index3] === undefined) continue;
+                if (bullets3[index3].alive == false) {
+                    bullets3.splice(index3, 1);
+                    continue;
+                }
+
+                bullets3[index3].position.add(bullets3[index3].velocity3);
+            }
+
+            for (var index4 = 0; index4 < bullets4.length; index4 += 1) {
+                if (bullets4[index4] === undefined) continue;
+                if (bullets4[index4].alive == false) {
+                    bullets4.splice(index4, 1);
+                    continue;
+                }
+                bullets4[index4].position.add(bullets4[index4].velocity4);
+            }
+
+            for (var index5 = 0; index5 < bullets5.length; index5 += 1) {
+                if (bullets5[index5] === undefined) continue;
+                if (bullets5[index5].alive == false) {
+                    bullets5.splice(index5, 1);
+                    continue;
+                }
+                bullets5[index5].position.add(bullets5[index5].velocity5);
+            }
+
+            for (var index8 = 0; index8 < bullets8.length; index8 += 1) {
+                if (bullets8[index8] === undefined) continue;
+                if (bullets8[index8].alive == false) {
+                    bullets8.splice(index8, 1);
+                    continue;
+                }
+                bullets8[index8].position.add(bullets8[index8].velocity8);
+            }
+
+            // local transformations
+
+            //Collisione con le isole!.
+
+            var originPoint = MovingCube.position.clone();
+            
+            for (var vertexIndex = 0; vertexIndex < MovingCube.geometry.vertices.length; vertexIndex++) {
+                var localVertex = MovingCube.geometry.vertices[vertexIndex].clone();
+                var globalVertex = localVertex.applyMatrix4(MovingCube.matrix);
+                var directionVector = globalVertex.sub(MovingCube.position);
+
+                var ray = new THREE.Raycaster(originPoint, directionVector.clone().normalize());
+                collisionResults1 = ray.intersectObjects(collidableMeshList);
+                if (collisionResults1.length > 0 && collisionResults1[0].distance < directionVector.length()) {
+                    
+                    faccia = collisionResults1[0].face.normal;
+                    if (faccia.x <= -0.9) {
+                        MovingCube.position.x = originPoint.x - 30,
+                            obj.position.x = originPoint.x - 30,
+                            bbox.position.x = originPoint.x - 30;
+                    }
+                    if (faccia.x >= 0.9) {
+                        MovingCube.position.x = originPoint.x + 30,
+                            obj.position.x = originPoint.x + 30,
+                            bbox.position.x = originPoint.x + 30;
+                    }
+                    if (faccia.z <= -0.9) {
+                        MovingCube.position.z = originPoint.z - 30,
+                            obj.position.z = originPoint.z - 30,
+                            bbox.position.z = originPoint.z - 30;
+                    }
+                    if (faccia.z >= 0.9) {
+                        MovingCube.position.z = originPoint.z + 30,
+                            obj.position.z = originPoint.z + 30,
+                            bbox.position.z = originPoint.z + 30;
+                    }
+
+                }
+
+            }
+
+            function WallsLimits() {
+                //Muro UP
+                firstObject = MovingCube;
+                secondObject = MovingCube2;
+                firstBB = new THREE.Box3().setFromObject(firstObject);
+                secondBB = new THREE.Box3().setFromObject(secondObject);
+                collision = firstBB.intersectsBox(secondBB);
+                if (collision) {
+                    MovingCube.position.z = originPoint.z + 40,
+                        obj.position.z = originPoint.z + 40,
+                        bbox.position.z = originPoint.z + 40;
+                }
+
+                //Muro DOWN
+                secondBB2 = new THREE.Box3().setFromObject(bboxWall0);
+                collisionWall0 = firstBB.intersectsBox(secondBB2);
+                if (collisionWall0) {
+                    MovingCube.position.z = originPoint.z - 40,
+                        obj.position.z = originPoint.z - 40,
+                        bbox.position.z = originPoint.z - 40;
+                }
+
+                secondBB3 = new THREE.Box3().setFromObject(bboxWall1);
+                collisionWall1 = firstBB.intersectsBox(secondBB3);
+                if (collisionWall1) {
+                    MovingCube.position.x = originPoint.x + 40,
+                        obj.position.x = originPoint.x + 40,
+                        bbox.position.x = originPoint.x + 40;
+                }
+                secondBB4 = new THREE.Box3().setFromObject(bboxWall2);
+                collisionWall2 = firstBB.intersectsBox(secondBB4);
+                if (collisionWall2) {
+                    MovingCube.position.x = originPoint.x - 40,
+                        obj.position.x = originPoint.x - 40,
+                        bbox.position.x = originPoint.x - 40;
+                }
+            }
+            WallsLimits();
+
+            function teletrasporto() {
+                var distEstremoCentro = 3400;
+
+                portal = new THREE.Box3().setFromObject(hollowCylinder2);
+                collisionPortal = firstBB.intersectsBox(portal);
+                if (collisionPortal) {
+                    MovingCube.position.set(distEstremoCentro, 0, distEstremoCentro);
+                    obj.position.set(distEstremoCentro, 0, distEstremoCentro);
+                    bbox.position.set(distEstremoCentro, 0, distEstremoCentro);
+                }
+                var distEstremoCentro1 = 4000;
+                portal1 = new THREE.Box3().setFromObject(hollowCylinder3);
+                collisionPortal1 = firstBB.intersectsBox(portal1);
+                if (collisionPortal1) {
+                    MovingCube.position.set(-distEstremoCentro, 0, distEstremoCentro);
+                    obj.position.set(-distEstremoCentro, 0, distEstremoCentro);
+                    bbox.position.set(-distEstremoCentro, 0, distEstremoCentro);
+                }
+                portal2 = new THREE.Box3().setFromObject(hollowCylinder4);
+                collisionPortal2 = firstBB.intersectsBox(portal2);
+                if (collisionPortal2) {
+                    MovingCube.position.set(distEstremoCentro, 0, -distEstremoCentro);
+                    obj.position.set(distEstremoCentro, 0, -distEstremoCentro);
+                    bbox.position.set(distEstremoCentro, 0, -distEstremoCentro);
+                }
+                portal3 = new THREE.Box3().setFromObject(hollowCylinder5);
+                collisionPortal3 = firstBB.intersectsBox(portal3);
+                if (collisionPortal3) {
+                    MovingCube.position.set(-distEstremoCentro, 0, -distEstremoCentro);
+                    obj.position.set(-distEstremoCentro, 0, -distEstremoCentro);
+                    bbox.position.set(-distEstremoCentro, 0, -distEstremoCentro);
+                }
+
+            }
+            teletrasporto();
+
+            // move forwards/backwards/left/right
+            // move forwards/backwards/left/right
+            if (keyboard.pressed("W")) {
+                obj.translateZ(moveDistance),
+                    bbox.translateZ(moveDistance),
+                    MovingCube.translateZ(-moveDistance);
+
+            }
+            if (keyboard.pressed("S")) {
+                obj.translateZ(-moveDistance),
+                    bbox.translateZ(-moveDistance),
+                    MovingCube.translateZ(moveDistance);
+            }
+            if (keyboard.pressed("A")) {
+                obj.rotateOnAxis(new THREE.Vector3(0, 1, 0), rotateAngle),
+                    bbox.rotateOnAxis(new THREE.Vector3(0, 1, 0), rotateAngle),
+                    MovingCube.rotateOnAxis(new THREE.Vector3(0, 1, 0), rotateAngle);
+            }
+            if (keyboard.pressed("D")) {
+                obj.rotateOnAxis(new THREE.Vector3(0, 1, 0), -rotateAngle),
+                    bbox.rotateOnAxis(new THREE.Vector3(0, 1, 0), -rotateAngle),
+                    MovingCube.rotateOnAxis(new THREE.Vector3(0, 1, 0), -rotateAngle);
+            }
+
+            //Distanza torretta/Barca
+            dista = posit1.distanceTo(posit2)
+            if (dista < 800 && canShoot3 <= 0) {
+                nemiciTorretta();
+        
+            }
+            if (canShoot3 > 0) canShoot3 -= 1;
+
+
+            if (canShoot2 <= 0) {
+                nemici();
+            }
+            if (canShoot2 > 0) canShoot2 -= 1;
+
+            if (canShoot5 <= 0) {
+                nemiciArm2();
+            }
+            if (canShoot5 > 0) canShoot5 -= 1;
+
+
+            window.dista5 = posit2.distanceTo(posit5)
+            if (dista5 < 800 && canShoot8 <= 0) {
+                window.targetDir3 = newModel.position.clone().sub(MovingCube.position).normalize();
+                window.newDir3 = new THREE.Vector3(-targetDir3.x, 0, -targetDir3.z);
+                window.pos3 = new THREE.Vector3();
+                window.pos3.addVectors(newDir3, newModel.position);
+                newModel.lookAt(pos3);
+                nemiciTorretta2();
+            }
+            if (canShoot8 > 0) canShoot8 -= 1;
+
+            if (keyboard.pressed("space") && canShoot <= 0) {
+                myBullet();
+            }
+            if (canShoot > 0) canShoot -= 1;
+
+            //Fine-------MISSILI----------------------------------Collisione---------------     
+            //MISSILI------------BOAT------------------------------------------------------
+            //MISSILI------------BOAT------------------------------------------------------
+            var originPoint3 = posit3.clone();
+            
+            for (var vertexIndex3 = 0; vertexIndex3 < EnemyCube.geometry.vertices.length; vertexIndex3++) {
+                var localVertex3 = EnemyCube.geometry.vertices[vertexIndex3].clone();
+                var globalVertex3 = localVertex3.applyMatrix4(EnemyCube.matrix);
+                var directionVector3 = globalVertex3.sub(EnemyCube.position);
+
+                var ray3 = new THREE.Raycaster(originPoint3, directionVector3.clone().normalize());
+                var collisionResults3 = ray3.intersectObjects(collidableMeshList1);
+                if (collisionResults3.length > 0 && collisionResults3[0].distance < directionVector3.length()) {
+                    
+                    parts1.push(new ExplodeAnimation1(0, 0)),
+                        sound2.play(),
+                        go(100),
+                        canShoot4 = 10000,
+                        scene.remove(EnemyCube);
+                    for (var i = 0; i < bullets.length; i++) {
+                        scene.remove(bullets[i]),
+                            collidableMeshList1.splice(0, 1);
+                    }
+                    setTimeout(function() {
+                        canShoot4 = 0,
+                            scene.remove(EnemyCube),
+                            scene.add(EnemyCube);
+
+                    }, 8000);
+                }
+
+            }
+
+            //MISSILI--------------Torretta--------------------Collisione-----------------------
+
+            originPoint2 = MovingCube.position.clone();
+           
+            for (var vertexIndex2 = 0; vertexIndex2 < MovingCube.geometry.vertices.length; vertexIndex2++) {
+                localVertex2 = MovingCube.geometry.vertices[vertexIndex2].clone();
+                globalVertex2 = localVertex2.applyMatrix4(MovingCube.matrix);
+                directionVector2 = globalVertex2.sub(MovingCube.position);
+
+                ray2 = new THREE.Raycaster(originPoint2, directionVector2.clone().normalize());
+                collisionResults2 = ray2.intersectObjects(collidableMeshListTorretta);
+                if (collisionResults2.length > 0 && collisionResults2[0].distance < directionVector2.length()) {
+                   
+                    parts.push(new ExplodeAnimation(0, 0)),
+                        sound2.play(),
+                        removelifepoint();
+                    for (var i = 0; i < bullets3.length + bullets8.length; i++) {
+                        scene.remove(bullets3[i]),
+                            scene.remove(bullets8[i]),
+                            collidableMeshListTorretta.splice(0, 1);
+                    }
+
+                }
+
+            }
+
+            for (var vertexIndex2 = 0; vertexIndex2 < MovingCube.geometry.vertices.length; vertexIndex2++) {
+                var localVertex2 = MovingCube.geometry.vertices[vertexIndex2].clone();
+                var globalVertex2 = localVertex2.applyMatrix4(MovingCube.matrix);
+                var directionVector2 = globalVertex2.sub(MovingCube.position);
+
+                var ray2 = new THREE.Raycaster(originPoint2, directionVector2.clone().normalize());
+                collisionResults4 = ray2.intersectObjects(collidableMeshList3);
+                if (collisionResults4.length > 0 && collisionResults4[0].distance < directionVector2.length()) {
+                    
+                    parts.push(new ExplodeAnimation(0, 0)),
+                        sound2.play(),
+                        removelifepoint();
+                    for (var i = 0; i < bullets4.length; i++) {
+                        scene.remove(bullets4[i]),
+                            collidableMeshList3.splice(0, 1);
+                    }
+                    
+                }
+
+            }
+           
+            for (var vertexIndex2 = 0; vertexIndex2 < MovingCube.geometry.vertices.length; vertexIndex2++) {
+                var localVertex2 = MovingCube.geometry.vertices[vertexIndex2].clone();
+                var globalVertex2 = localVertex2.applyMatrix4(MovingCube.matrix);
+                var directionVector2 = globalVertex2.sub(MovingCube.position);
+
+                var ray2 = new THREE.Raycaster(originPoint2, directionVector2.clone().normalize());
+                collisionResults5 = ray2.intersectObjects(collidableMeshList2);
+                if (collisionResults5.length > 0 && collisionResults5[0].distance < directionVector2.length()) {
+                    
+                    parts.push(new ExplodeAnimation(0, 0)),
+                        sound2.play(),
+                        removelifepoint();
+                    for (var i = 0; i < bullets2.length; i++) {
+                        scene.remove(bullets2[i]),
+                            collidableMeshList2.splice(0, 1);
+                    }
+
+                }
+
+            }
+
+      
+            for (var vertexIndex2 = 0; vertexIndex2 < MovingCube.geometry.vertices.length; vertexIndex2++) {
+                var localVertex2 = MovingCube.geometry.vertices[vertexIndex2].clone();
+                var globalVertex2 = localVertex2.applyMatrix4(MovingCube.matrix);
+                var directionVector2 = globalVertex2.sub(MovingCube.position);
+
+                var ray2 = new THREE.Raycaster(originPoint2, directionVector2.clone().normalize());
+                collisionResults8 = ray2.intersectObjects(collidableMeshList5);
+                if (collisionResults8.length > 0 && collisionResults8[0].distance < directionVector2.length()) {
+                    
+                    parts.push(new ExplodeAnimation(0, 0)),
+                        sound2.play(),
+                        removelifepoint();
+                    for (var i = 0; i < bullets5.length; i++) {
+                        scene.remove(bullets5[i]),
+                            collidableMeshList5.splice(0, 1);
+                    }
+
+                }
+
+            }
+
+            for (var vertexIndex3 = 0; vertexIndex3 < MovingCubeT.geometry.vertices.length; vertexIndex3++) {
+                var localVertex3 = MovingCubeT.geometry.vertices[vertexIndex3].clone();
+                var globalVertex3 = localVertex3.applyMatrix4(MovingCubeT.matrix);
+                var directionVector3 = globalVertex3.sub(MovingCubeT.position);
+
+                var ray3 = new THREE.Raycaster(MovingCubeT.position, directionVector3.clone().normalize());
+                var collisionResults3 = ray3.intersectObjects(collidableMeshList1);
+                if (collisionResults3.length > 0 && collisionResults3[0].distance < directionVector3.length()) {
+                 
+                    parts2.push(new ExplodeAnimation2(0, 0)),
+                        sound2.play(),
+                        go(100),
+                        scene.remove(newModel),
+                        MovingCubeT.position.y = 40,
+                        canShoot8 = 10000;
+                    for (var i = 0; i < bullets.length; i++) {
+                        scene.remove(bullets[i]),
+                            collidableMeshList1.splice(0, 1);
+                    }
+                    setTimeout(function() {
+                        scene.remove(MovingCubeT),
+                            addModel(),
+                            canShoot8 = 0;
+
+                    }, 8000);
+                }
+
+            }
+
+            for (var vertexIndex3 = 0; vertexIndex3 < MovingCubeT2.geometry.vertices.length; vertexIndex3++) {
+                var localVertex3 = MovingCubeT2.geometry.vertices[vertexIndex3].clone();
+                var globalVertex3 = localVertex3.applyMatrix4(MovingCubeT2.matrix);
+                var directionVector3 = globalVertex3.sub(MovingCubeT2.position);
+
+                var ray3 = new THREE.Raycaster(MovingCubeT2.position, directionVector3.clone().normalize());
+                var collisionResults3 = ray3.intersectObjects(collidableMeshList1);
+                if (collisionResults3.length > 0 && collisionResults3[0].distance < directionVector3.length()) {
+                
+                    parts3.push(new ExplodeAnimation3(0, 0)),
+                        sound2.play(),
+                        go(100),
+                        scene.remove(cylinderSx8),
+                        MovingCubeT2.position.y = 40,
+                        canShoot3 = 10000;
+                    for (var i = 0; i < bullets.length; i++) {
+                        scene.remove(bullets[i]),
+                            collidableMeshList1.splice(0, 1);
+                    }
+                    setTimeout(function() {
+                        scene.remove(MovingCubeT2),
+                            MovingCubeT2.position.y = 0,
+                            scene.add(cylinderSx8),
+                            scene.add(MovingCubeT2),
+                            canShoot3 = 0;
+
+                    }, 8000);
+                }
+
+            }
+        
+            for (var vertexIndex3 = 0; vertexIndex3 < MovingCubeArmBox.geometry.vertices.length; vertexIndex3++) {
+                var localVertex3 = MovingCubeArmBox.geometry.vertices[vertexIndex3].clone();
+                var globalVertex3 = localVertex3.applyMatrix4(MovingCubeArmBox.matrix);
+                var directionVector3 = globalVertex3.sub(MovingCubeArmBox.position);
+
+                var ray3 = new THREE.Raycaster(MovingCubeArmBox.position, directionVector3.clone().normalize());
+                var collisionResults3 = ray3.intersectObjects(collidableMeshList1);
+                if (collisionResults3.length > 0 && collisionResults3[0].distance < directionVector3.length()) {
+            
+                    go(100),
+                        parts4.push(new ExplodeAnimation4(0, 0)),
+                        sound2.play(),
+                        scene.remove(cylinderSx),
+                        MovingCubeArmBox.position.y = 40,
+                        canShoot2 = 10000;
+                    for (var i = 0; i < bullets.length; i++) {
+                        scene.remove(bullets[i]),
+                            collidableMeshList1.splice(0, 1);
+                    }
+                    setTimeout(function() {
+                        scene.remove(MovingCubeArmBox),
+                            MovingCubeArmBox.position.y = 0,
+                            scene.add(cylinderSx),
+                            scene.add(MovingCubeArmBox),
+                            canShoot2 = 0;
+
+                    }, 8000);
+                }
+
+            }
+
+            for (var vertexIndex3 = 0; vertexIndex3 < MovingCubeArmBox2.geometry.vertices.length; vertexIndex3++) {
+                var localVertex3 = MovingCubeArmBox2.geometry.vertices[vertexIndex3].clone();
+                var globalVertex3 = localVertex3.applyMatrix4(MovingCubeArmBox2.matrix);
+                var directionVector3 = globalVertex3.sub(MovingCubeArmBox2.position);
+
+                var ray3 = new THREE.Raycaster(MovingCubeArmBox2.position, directionVector3.clone().normalize());
+                var collisionResults3 = ray3.intersectObjects(collidableMeshList1);
+                if (collisionResults3.length > 0 && collisionResults3[0].distance < directionVector3.length()) {
+              
+                    parts5.push(new ExplodeAnimation5(0, 0)),
+                        sound2.play(),
+                        go(100),
+                        scene.remove(cylinder),
+                        MovingCubeArmBox2.position.y = 40,
+                        canShoot5 = 10000;
+                    for (var i = 0; i < bullets.length; i++) {
+                        scene.remove(bullets[i]),
+                            collidableMeshList1.splice(0, 1);
+                    }
+                    setTimeout(function() {
+                        scene.remove(MovingCubeArmBox2),
+                            MovingCubeArmBox2.position.y = 0,
+                            scene.add(cylinder),
+                            scene.add(MovingCubeArmBox2),
+                            canShoot5 = 0;
+
+                    }, 8000);
+                }
+
+            }
+
+            stats.update();
+
+            var veloxEnemy = 0.0002;
+            //IA NEMICI
+            
+            var originPoint3 = EnemyCube.position.clone();
+                       for (var vertexIndex = 0; vertexIndex < EnemyCube.geometry.vertices.length; vertexIndex++) {
+                var localVertex = EnemyCube.geometry.vertices[vertexIndex].clone();
+                var globalVertex = localVertex.applyMatrix4(EnemyCube.matrix);
+                var directionVector = globalVertex.sub(EnemyCube.position);
+
+                var ray = new THREE.Raycaster(originPoint3, directionVector.clone().normalize());
+                collisionResults = ray.intersectObjects(collidableMeshList0);
+                if (collisionResults.length > 0 && collisionResults[0].distance < 900) {
+                 
+                    veloxEnemy = 0.00008,
+                        targetDir2 = EnemyCube.position.clone().sub(MovingCube.position).normalize();
+                    newDir2 = new THREE.Vector3(-targetDir2.x, 0, -targetDir2.z);
+                    pos2 = new THREE.Vector3();
+                    pos2.addVectors(newDir2, EnemyCube.position);
+                    EnemyCube.lookAt(pos2);
+                    if (canShoot4 <= 0) {
+                        enemyShoot();
+                    }
+                }
+
+            }
+            if (canShoot4 > 0) canShoot4 -= 1;
+            
+            pt = spline.getPoint(t);
+            marker.position.set(pt.x, pt.y, pt.z);
+
+            // get the tangent to the curve
+            tangent = spline.getTangent(t).normalize();
+
+            // calculate the axis to rotate around
+            axis.crossVectors(up, tangent).normalize();
+
+            // calcluate the angle between the up vector and the tangent
+            radians = Math.acos(up.dot(tangent));
+
+            // set the quaternion
+            marker.quaternion.setFromAxisAngle(axis, radians);
+
+            t = (t >= 1) ? 0 : t += veloxEnemy;
+
+            ;
+        }
+
+        function render() {
+
+            targetDir = cylinderSx8.position.clone().sub(MovingCube.position).normalize();
+            currentDir = (new THREE.Vector3()).applyMatrix4(cylinderSx8.matrixWorld).sub(cylinderSx8.position).normalize();
+            amountToRotate = currentDir.sub(targetDir);
+            offset = amountToRotate.length();
+
+            newDir = new THREE.Vector3(-targetDir.x, 0, -targetDir.z);
+            pos = new THREE.Vector3();
+            pos.addVectors(newDir, cylinderSx8.position);
+            cylinderSx8.lookAt(pos);
+
+            var pCount = parts.length;
+            while (pCount--) {
+                parts[pCount].update();
+            }
+            var pCount1 = parts1.length;
+            while (pCount1--) {
+                parts1[pCount1].update1();
+            }
+            var pCount2 = parts2.length;
+            while (pCount2--) {
+                parts2[pCount2].update2();
+            }
+            var pCount3 = parts3.length;
+            while (pCount3--) {
+                parts3[pCount3].update3();
+            }
+            var pCount4 = parts4.length;
+            while (pCount4--) {
+                parts4[pCount4].update4();
+            }
+            var pCount5 = parts5.length;
+            while (pCount5--) {
+                parts5[pCount5].update5();
+            }
+
+            var time = performance.now() * 0.001;
+
+            sphere.position.y = Math.sin(time) * 20 + 5;
+            sphere.rotation.x = time * 0.5;
+            sphere.rotation.z = time * 0.51;
+
+            var velox = 0.01;
+            var maxRotationSx = -0.26;
+            var maxRotationSx1 = -1.44;
+            var minRotationSx = -2.5;
+            var minRotationSx1 = -0.3;
+
+            conta += 1;
+            if (conta % 250 == 0) {
+                sign *= -1;
+
+            }
+            cylinderSx3.rotation.x += (sign * velox);
+            cylinderSx2.rotation.x -= (sign * velox) / 2;
+
+            conta2 += 1;
+            if (conta2 % 150 == 0) {
+                sign2 *= -1;
+            }
+
+            cylinder3.rotation.x += (sign2 * velox);
+            cylinder2.rotation.x -= (sign2 * velox) / 2;
+
+
+            if (conta % 1000 == 0) {
+                if (tempo < 15) {
+                    tempo = tempo * 1.08;
+                }
+                if (tempo > 15) {
+                    tempo = tempo * 1.005;
+                }
+
+            }
+
+            if (conta % 75 == 0) {
+                sign2 *= -1;
+            }
+            obj.position.y += (sign2 * 0.03);
+
+            if (conta % 75 == 0) {
+                sign2 *= -1;
+            }
+            EnemyCube.position.y += (sign2 * 0.03);
+            
+            //Aggiorno in un vettore la posizione corrente di cylinderSx4              
+
+            scene.updateMatrixWorld(true);
+            posit = new THREE.Vector3();
+            posit.setFromMatrixPosition(cylinderSx4.matrixWorld);
+
+            posit1 = new THREE.Vector3();
+            posit1.setFromMatrixPosition(cylinderSx8.matrixWorld);
+
+            posit2 = new THREE.Vector3();
+            posit2.setFromMatrixPosition(MovingCube.matrixWorld);
+
+            posit3 = new THREE.Vector3();
+            posit3.setFromMatrixPosition(EnemyCube.matrixWorld);
+
+            posit4 = new THREE.Vector3();
+            posit4.setFromMatrixPosition(cylinder4.matrixWorld);
+
+            window.posit5 = new THREE.Vector3();
+            posit5.setFromMatrixPosition(newModel.matrixWorld);
+
+            water.material.uniforms.time.value += 1.0 / 60.0;
+
+            renderer.render(scene, camera);
+        }
+
+        function gameOver() {
+            document.getElementById('game-over').style.display = 'block';
+            document.getElementById('game-over-overlay').style.display = 'block';
+            
+            scene = false;
+
+        }
+
+        function reset() {
+            document.getElementById('game-over').style.display = 'none';
+            document.getElementById('game-over-overlay').style.display = 'none';
+            window.location.reload(true);
+        }
+
+    </script>
+</body>
+</html>
