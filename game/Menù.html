@@ -1,0 +1,120 @@
+<!doctype html><title>Sea-Fighters</title>
+<!-- css for bootstrap -->
+<link href="menu/vendor/bootstrap/css/bootstrap-cyborg.css" rel="stylesheet">
+<link href="menu/vendor/font-awesome/css/font-awesome.min.css" rel="stylesheet">
+<body>
+<style type="text/css">
+	/* BUTTON FOR BOOTSTRAP */
+	.jumbotron {
+		margin: 120px 0;
+		text-align: center;
+		color: white;
+	}
+	.jumbotron h1 {
+		font-size: 100px;
+		line-height: 1;
+	}
+	.jumbotron .btn {
+		font-size: 42px;
+		padding: 28px 48px;
+	}
+	.modal {
+		font-size: 150%;
+		line-height: 1.5;
+	}
+	.redglow {
+		text-shadow: 0 0 0.2em #F66, 0 0 0.2em #F22, 0 0 0.4em #F22;
+	}
+	.btn:hover {
+		text-shadow: 0 0 0.2em #F66, 0 0 0.2em #F22, 0 0 0.4em #F22;
+	}
+</style>
+<div class='container'>
+	<!-- Jumbotron -->
+	<div class="jumbotron">
+		<h1><strong class='redglow'>Sea Fighters</strong></h1>
+		<br/>
+		<p class='lead'>
+			Nothing is more exciting in life than seeing yourself shoot and not be hit.
+		</p>
+		<p><normal>
+			(SIR WINSTON CHURCHILL)
+		</normal></p>
+		<p class='lead'>
+			Watch the gameplay to learn how to play.
+		</p>
+
+		<br/>
+		<br/>
+	   <div class="row btn-group btn-group-horizontal">
+			 <a href="#Gioca" role="button" data-toggle="modal"
+ 				class="icon-info-sign btn btn-large  btn-info">
+ 				Play!
+ 			</a>
+			<a href="#Tutorial" role="button" data-toggle="modal"
+				class="icon-info-sign btn btn-large  btn-info">
+				Gameplay
+			</a>
+			<a href="#Creatori" role="button" data-toggle="modal"
+				class="icon-info-sign btn btn-large btn-info">
+				Creators
+			</a>
+		</div>
+	</div>
+	<!--Creatori -->
+	<div id="Creatori" class="modal hide fade" tabindex="-1" role="dialog"
+		aria-labelledby="CreatoriLabel" aria-hidden="true">
+		<div class="modal-header">
+			<button type="button" class="close" data-dismiss="modal" aria-hidden="true">x</button>
+		</div>
+		<div class="modal-body">
+			<h3 class='redglow'>Created by:</h3>
+				<h3>Alessandro Trapasso:</h3>
+				<a href='https://www.facebook.com/alessandro.trapasso8' target='_blank'>FB: Alessandro_Trapasso</a>
+			</p>
+			<p>
+				<h3>Damiano Brunori:</h3>
+				<a href='https://www.facebook.com/damiano.brunori' target='_blank'>FB: Damiano Brunori</a>
+			</p>
+			<p>
+				<h3>Lorenzo Saiella:</h3>
+				<a href='https://www.facebook.com/lorenzo.saiella' target='_blank'>FB: Lorenzo Saiella</a>
+			</p>
+
+
+		</div>
+	</div>
+	<!--Tutorial -->
+	<div id="Tutorial" class="modal hide fade" tabindex="-1" role="dialog"
+		aria-labelledby="TutorialLabel" aria-hidden="true">
+		<div class="modal-header">
+			<button type="button" class="close" data-dismiss="modal" aria-hidden="true">x</button>
+		</div>
+		<div class="modal-body">
+			<h3 class='redglow'>Gameplay</h3>
+				The user is on a boat in the middle of the ocean, surrounded by islands and enemies. The aim of the game is to kill the enemies before being killed. You earn points every time you hit an enemy. The user can make the ship move by pressing the keyboard keys (W, A, S, D) and shoot the missiles by pressing 'space'.
+				<div>
+				<h2>Earn as many points as you can!</h2>
+				</div>
+			</p>
+		</div>
+	</div>
+
+	<div id="Gioca" class="modal hide fade" tabindex="-1" role="dialog"
+		aria-labelledby="GiocalLabel" aria-hidden="true">
+		<div class="modal-header">
+			<button type="button" class="close" data-dismiss="modal" aria-hidden="true">x</button>
+		</div>
+		<div class="modal-body">
+			<h3 class='redglow'>Start!</h3>
+				<a href='game/index.html' target='_blank'>Sea-Fighters</a>
+			</p>
+		</div>
+	</div>
+
+
+</div>
+<!-- Script per bootstrap -->
+<script src='menu/vendor/jquery/jquery.min.js'></script>
+<script src='menu/vendor/bootstrap/js/bootstrap.min.js'></script>
+</body>
